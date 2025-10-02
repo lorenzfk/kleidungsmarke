@@ -2,13 +2,14 @@
 
 import { useEffect, useMemo, useState, useRef } from 'react';
 import ProductDetailClient from '@/components/ProductDetailClient';
+import CollectionClient from '@/components/CollectionClient';
 
 /**
- * BuyUI renders the leather bar + wood panel and embeds a full PDP for the selected item.
- * - Keeps itself in the DOM even when nothing is selected (data-active toggles CSS).
- * - Fetches from /api/product first (your server helper), then *optionally* enriches
- *   with Shopify theme JSON (/products/<handle>.json or .js) to get extra images.
- * - Always sets posterUrl and images[] for ProductDetailClient.
+ * BuyUI renders the leather bar + wood panel and embeds either:
+ *  - the full PDP (ProductDetailClient) for a product, OR
+ *  - the CollectionClient for the "special" collection when the special tile is selected.
+ * 
+ * Keeps itself in the DOM even when nothing is selected (data-active toggles CSS).
  */
 export default function BuyUI({
   selected,
@@ -17,7 +18,10 @@ export default function BuyUI({
   onPrev,
   onNext,
   onBuy,
+  specialCollection,     // { title, items, hasAny } | null
 }) {
+  const isSpecialSelected = !!(selected && selected.__special);
+
   // Treat "no selection" as disabled state
   const hasSelection = !!selected;
   const atStart = !hasSelection || selectedIdx <= 0;
@@ -26,8 +30,7 @@ export default function BuyUI({
   const handlePrev = () => { if (!hasSelection || atStart) return; onPrev?.(); };
   const handleNext = () => { if (!hasSelection || atEnd) return; onNext?.(); };
 
-  /** -------- adapters (keep tiny & defensive) -------- */
-
+  /** ---------------- PDP flow (only when NOT special) ---------------- */
   // normalize any "images" shape into [{src, alt}]
   const normalizeImages = (imgs, posterUrl) => {
     const list = [];
@@ -84,11 +87,7 @@ export default function BuyUI({
   // Unify shapes coming from /api/product, /products/<handle>.json, etc.
   const adaptProduct = (raw, sel) => {
     if (!raw) return synthesizeFromSelected(sel);
-
-    // Known shapes:
-    // - Our /api/product → { id,title,descriptionHtml,posterUrl,options[],variants[],defaultVariantId }
-    // - Shopify theme JSON → { product: { title, body_html, images: [{src..}], image, variants, options } }
-    const p = raw.product || raw; // absorb theme "product" wrapper if present
+    const p = raw.product || raw;
 
     const title = p.title || sel?.name || sel?.title || '';
     const posterUrl =
@@ -100,12 +99,10 @@ export default function BuyUI({
       sel?.posterUrl ||
       '';
 
-    // options
     const options = Array.isArray(p.options)
       ? p.options.map(o => ({ name: o.name, values: Array.from(new Set(o.values || [])) }))
       : (sel?.options || []);
 
-    // variants (normalize a few known shapes)
     let variants = [];
     if (Array.isArray(p.variants)) {
       variants = p.variants.map(v => ({
@@ -140,7 +137,6 @@ export default function BuyUI({
       (variants[0]?.id) ||
       null;
 
-    // images
     const images = normalizeImages(p.images, posterUrl);
 
     return {
@@ -156,21 +152,22 @@ export default function BuyUI({
     };
   };
 
-  // Prefer a complete product bundled with the selection (if you ever pass it in)
   const inlineProduct = useMemo(() => {
+    if (!selected || isSpecialSelected) return null;
     const maybe =
       selected?.product ||
       selected?.fullProduct ||
       (selected && selected.title && (selected.variants || selected.options) ? selected : null);
     return maybe ? adaptProduct(maybe, selected) : null;
-  }, [selected]);
+  }, [selected, isSpecialSelected]);
 
   const [product, setProduct] = useState(null);
   const [pLoading, setPLoading] = useState(false);
 
   useEffect(() => {
     setProduct(null);
-    if (!hasSelection) return;
+
+    if (!selected || isSpecialSelected) return; // skip PDP fetching when special
 
     // Inline → done
     if (inlineProduct) { setProduct(inlineProduct); return; }
@@ -182,7 +179,7 @@ export default function BuyUI({
     async function load() {
       setPLoading(true);
 
-      // 1) Primary: our API (guarantees posterUrl/options/variants)
+      // 1) Primary: our API
       try {
         const res = await fetch(`/api/product?handle=${encodeURIComponent(handle)}`, { cache: 'no-store' });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -190,20 +187,18 @@ export default function BuyUI({
         const base = adaptProduct(data, selected);
         if (!cancelled) setProduct(base);
 
-        // 2) Optional enrichment: try theme JSON for more images (doesn't break if it fails)
+        // 2) Optional enrichment via theme JSON
         try {
           const r2 = await fetch(`/products/${handle}.json`, { cache: 'no-store' });
           if (r2.ok) {
             const d2 = await r2.json();
             const enriched = adaptProduct(d2, selected);
-            // merge images (keep poster first, de-dupe)
             const merged = {
               ...base,
               images: (() => {
                 const seen = new Set();
                 const out = [];
                 const add = (src, alt='') => { if (src && !seen.has(src)) { seen.add(src); out.push({ src, alt }); } };
-                // poster first
                 add(base.posterUrl, '');
                 (base.images || []).forEach(i => add(i.src, i.alt));
                 (enriched.images || []).forEach(i => add(i.src, i.alt));
@@ -233,11 +228,16 @@ export default function BuyUI({
 
     load();
     return () => { cancelled = true; };
-  }, [hasSelection, selected, inlineProduct]);
+  }, [selected, isSpecialSelected, inlineProduct]);
 
-  // Fallback “open full page” if you still want a button somewhere
+  // Fallback “open full page”
   const handleOpenFullPage = () => {
-    if (!hasSelection) return;
+    if (!selected) return;
+    if (isSpecialSelected) {
+      // Optional: route to the special collection page
+      window.location.href = `/collections/${encodeURIComponent('special')}`;
+      return;
+    }
     if (onBuy) onBuy();
     else if (selected?.handle) window.location.href = `/products/${selected.handle}`;
   };
@@ -255,6 +255,10 @@ export default function BuyUI({
     wood.addEventListener('scroll', onScroll);
     return () => wood.removeEventListener('scroll', onScroll);
   }, []);
+
+  const titleText = hasSelection
+    ? (isSpecialSelected ? (specialCollection?.title || 'Special') : (selected?.name || selected?.title || ''))
+    : '';
 
   return (
     <div
@@ -277,9 +281,7 @@ export default function BuyUI({
           </button>
 
           {/* keep id=buyTitle so AppChrome can read it */}
-          <h2 id="buyTitle" className="buyui-title">
-            {hasSelection ? (selected?.name || selected?.title || '') : ''}
-          </h2>
+          <h2 id="buyTitle" className="buyui-title">{titleText}</h2>
 
           <button
             className={`buyui-btn arrow-right${atEnd ? ' disabled' : ''}`}
@@ -291,28 +293,47 @@ export default function BuyUI({
           </button>
         </div>
 
-        {/* Wood panel with embedded product detail */}
+        {/* Wood panel with embedded content */}
         <div className="buyui-wood" ref={woodRef}>
           {!hasSelection ? null : (
             <>
-              {pLoading && (
-                <div className="buyui-detail loading" aria-busy="true" aria-live="polite">
-                  <div className="spinner" />
-                </div>
-              )}
-
-              {!pLoading && product && (
+              {/* SPECIAL: render collection client */}
+              {isSpecialSelected && (
                 <div className="buyui-detail">
-                  <ProductDetailClient product={product} related={product.related || []} />
+                  {specialCollection?.hasAny ? (
+                    <CollectionClient title={specialCollection.title} items={specialCollection.items} />
+                  ) : (
+                    <div className="buyui-detail error">
+                      <p>Diese Kollektion ist leer.</p>
+                      <button className="btn-aqua" onClick={handleOpenFullPage}>Öffnen</button>
+                    </div>
+                  )}
                 </div>
               )}
 
-              {!pLoading && !product && (
-                <div className="buyui-detail error">
-                  <button className="btn-aqua" onClick={handleOpenFullPage}>
-                    Zum Produkt
-                  </button>
-                </div>
+              {/* NORMAL PDP */}
+              {!isSpecialSelected && (
+                <>
+                  {!product && (
+                    <div className="buyui-detail loading" aria-busy="true" aria-live="polite">
+                      <div className="spinner" />
+                    </div>
+                  )}
+
+                  {product && (
+                    <div className="buyui-detail">
+                      <ProductDetailClient product={product} related={product.related || []} />
+                    </div>
+                  )}
+
+                  {!product && (
+                    <div className="buyui-detail error">
+                      <button className="btn-aqua" onClick={handleOpenFullPage}>
+                        Zum Produkt
+                      </button>
+                    </div>
+                  )}
+                </>
               )}
             </>
           )}

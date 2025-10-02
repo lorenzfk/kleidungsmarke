@@ -12,24 +12,24 @@ import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js
 import BuyUI from '@/components/BuyUI';
 import TalkBubble from '@/components/TalkBubble';
 
-/* ================== CONFIG YOU CAN EDIT ================== */
-// Default camera position used by the scene (and when returning from sections)
+/* ================== CONFIG ================== */
 const DEFAULT_CAM_POS = { x: 0, y: 0, z: 3 };
-
-// Per-section 3D camera targets. Change these to move camera for sections.
 const SECTION_CAM_POS = {
   about:   { x: 0.0, y: 0.82, z: 2.80},
-  legal:   {x: 0.00, y: 0.82, z: 2.80 },
+  legal:   { x: 0.00, y: 0.82, z: 2.80 },
   default: { x: 0.00, y: 0.12, z: 2.80 },
 };
-/* ========================================================= */
-
 const OBJECT_PLANE_Z = 0.6;
 const BG_Z = -0.6;
 const BG_URL = process.env.NEXT_PUBLIC_BG_MODEL_URL || '/SHOP.glb';
 const ENV_URL = process.env.NEXT_PUBLIC_ENV_URL || '';
 const BARTOP_EXTRA = Number.parseFloat(process.env.NEXT_PUBLIC_BARTOP_EXTRA || '0.8');
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+
+/* ===== Special “sticky” tile config ===== */
+const SPECIAL_HANDLE = 'special';
+const SPECIAL_MODEL_URL = process.env.NEXT_PUBLIC_SPECIAL_MODEL_URL || '/SPECIAL.glb';
+const SPECIAL_TITLE_FALLBACK = 'Special';
 
 /* ========================== Engine ========================== */
 class KMEngine {
@@ -60,7 +60,9 @@ class KMEngine {
     this.shelfProto = null;
     this.shelfInstances = [];
 
-    this.characterNode = null;
+    this.characterNode = null;      // original node from GLB
+    this.characterWrapper = null;   // neutral wrapper we move (never bones)
+    this._charLocalBottomY = null;  // cached bind-pose bottom (wrapper-local)
     this.actions = { idle: null, talk: null };
     this._talking = false;
 
@@ -71,27 +73,31 @@ class KMEngine {
     this.contentEl = null;
     this.gridEl = null;
 
-    // Selection & camera state
     this.selectedId = null;
 
-    this.followScroll = true;     // when true, camera.y follows scroll
+    this.followScroll = true;
     this.prevScrollTop = 0;
 
-    // 1D camera target (y) for product focus
     this.camTargetY = null;
+    this.camTarget = null;
+    this.cam3DMode = false;
+    this._returning = false;
 
-    // 3D camera target (x,y,z) for section focus
-    this.camTarget = null;        // THREE.Vector3 or null
-    this.cam3DMode = false;       // true while animating/holding a 3D section target
-    this._returning = false;      // used for smooth return to scroll
-
-    this.SELECT_ANCHOR_FRAC = -0.6;
-    this.SELECT_Y_OFFSET = 0.16;
+    this.SELECT_ANCHOR_FRAC = -0.5;
+    this.SELECT_Y_OFFSET = 0.12;
 
     this.grid = { cols: 3, spacingX: 1, spacingY: 1, originX: 0, originY: -0.3, targetSize: 0.42 };
 
+    // ⛳ grid-Y lock (no Y re-anchoring while selected/section)
+    this.lockGridY = false;
+
     this._loop = this._loop.bind(this);
     this._onResize = this._onResize.bind(this);
+  }
+
+  setLockGridY(lock) {
+    this.lockGridY = !!lock;
+    if (!this.lockGridY) this.queueRelayout?.();
   }
 
   _emitProgress(phase, loaded, total, url) {
@@ -103,30 +109,19 @@ class KMEngine {
   }
 
   playTalkOnce() {
-      // If we don't have animation wiring, just bail silently
-      if (!this.bgMixer || !this.actions || !this.actions.talk) return;
+    if (!this.bgMixer || !this.actions || !this.actions.talk) return;
+    const talk = this.actions.talk, idle = this.actions.idle;
+    this._talking = true;
+    idle?.fadeOut(0.1);
+    talk.reset(); talk.setLoop(THREE.LoopOnce, 1); talk.clampWhenFinished = true; talk.play();
+    if (this._talkCleanup) clearTimeout(this._talkCleanup);
+    const dur = (talk.getClip?.().duration ?? 0.8) * 1000;
+    this._talkCleanup = setTimeout(() => {
+      this._talking = false;
+      idle?.reset().fadeIn(0.15).play();
+    }, Math.max(200, dur + 40));
+  }
 
-      const talk = this.actions.talk;
-      const idle = this.actions.idle;
-
-      // mark as talking (guards against re-entry)
-      this._talking = true;
-
-      // prepare and play the one-shot "talk" clip
-      if (idle) idle.fadeOut(0.1);
-      talk.reset();
-      talk.setLoop(THREE.LoopOnce, 1);
-      talk.clampWhenFinished = true;
-      talk.play();
-
-      // safety: ensure we return to idle even if 'finished' doesn't fire
-      if (this._talkCleanup) clearTimeout(this._talkCleanup);
-      const dur = (talk.getClip?.().duration ?? 0.8) * 1000;
-      this._talkCleanup = setTimeout(() => {
-        this._talking = false;
-        if (idle) idle.reset().fadeIn(0.15).play();
-      }, Math.max(200, dur + 40));
-    }
   _getCanvasSize() {
     const el = this.renderer?.domElement;
     let w = el?.clientWidth ?? window.innerWidth ?? 1;
@@ -158,6 +153,13 @@ class KMEngine {
     const viewW = viewH * this.camera.aspect;
     const { w } = this._getCanvasSize();
     return this._safe(viewW / Math.max(1, w), 0.001);
+  }
+
+  _worldYAtObjFromScreenY(screenY) {
+    const { h } = this._getCanvasSize();
+    const dyPx = screenY - h * 0.5;
+    const wuppY = this._wuppY();
+    return this.camera.position.y - dyPx * wuppY;
   }
 
   _viewportWidthAtDepth(depth) {
@@ -230,12 +232,14 @@ class KMEngine {
     if (!this.shelfProto || !this.shelfProto.parent) this.shelfProto = this._findByNameCI(root, 'shelf') || null;
     if (!this.characterNode || !this.characterNode.parent) this.characterNode = this._findByNameCI(root, 'character') || null;
   }
+
+  /* ==== shelves & barTop layout ==== */
   _layoutBarTop() {
     this.ensureBgRefs();
     if (!this.barTop || !this._isViewportStable()) return;
     if (this._hasSkinnedDescendants(this.barTop)) return;
     this._fitLargerThanViewport(this.barTop, BARTOP_EXTRA);
-    const yTopObj = this.grid.originY + this.grid.spacingY * 0.5;
+    const yTopObj = this.grid.originY + this.grid.spacingY * 0.5; // "top of CSS grid" (top shelf line)
     const wp = new THREE.Vector3(); this.barTop.getWorldPosition(wp);
     const yTopAtBar = this._mapYFromObjPlaneToZ(yTopObj, wp.z);
     this._setBottomWorldY(this.barTop, yTopAtBar);
@@ -281,13 +285,13 @@ class KMEngine {
     for (let r = 0; r < rows; r++) this._layoutShelfForRow(this.shelfInstances[r], r);
   }
 
+  /* ==== init & loaders ==== */
   init(container) {
     if (this.initialized && this.container === container) return;
 
     this.container = container;
     const renderer = new THREE.WebGLRenderer({ antialias: false, alpha: true, powerPreference: 'high-performance' });
     const DPR = window.devicePixelRatio || 1;
-    //const DPR = 0.66;
     renderer.setPixelRatio(DPR);
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -411,6 +415,7 @@ class KMEngine {
     });
     this.bgRoot = null; this.barTop = null; this.shelfProto = null; this.shelfInstances = [];
     this.bgMixer = null; this.characterNode = null; this.actions = { idle: null, talk: null }; this._talking = false;
+    this.characterWrapper = null; this._charLocalBottomY = null;
   }
 
   async loadBackgroundOnce(url) {
@@ -446,6 +451,7 @@ class KMEngine {
       this.shelfProto = this._findByNameCI(root, 'shelf');
       this.characterNode = this._findByNameCI(root, 'character') || null;
 
+      // animations
       if (m.animations?.length) {
         const mixer = new THREE.AnimationMixer(root);
         this.bgMixer = mixer;
@@ -480,6 +486,10 @@ class KMEngine {
         } catch {}
       }
 
+      // ensure wrapper + cache bind bottom once character is present
+      this._ensureCharacterWrapper();
+      this._cacheCharBindBottomY();
+
       this._afterStable(() => { this._updateShelvesLayout(); this._layoutBarTop(); });
     };
 
@@ -493,6 +503,7 @@ class KMEngine {
     }
   }
 
+  /* ==== grid sync ==== */
   syncGridFromDOM() {
     if (!this.gridEl || !this.renderer || !this.camera) return;
     if (!this._isViewportStable()) return;
@@ -509,15 +520,31 @@ class KMEngine {
     const wuppX = this._wuppX();
     const wuppY = this._wuppY();
 
+    const prevSpacingY = this.grid.spacingY;
+    const prevOriginY  = this.grid.originY;
+
     this.grid.cols = Math.max(1, cols);
     this.grid.spacingX = this._safe(w * wuppX, this.grid.spacingX || 0.5);
-    this.grid.spacingY = this._safe(h * wuppY, this.grid.spacingY || 0.5);
+
+    if (!this.lockGridY) this.grid.spacingY = this._safe(h * wuppY, this.grid.spacingY || 0.5);
+    else this.grid.spacingY = prevSpacingY;
 
     const rectGrid = this.gridEl.getBoundingClientRect?.() || { left: 0, width: 0 };
     const { w: vpw } = this._getCanvasSize();
     const gridCenterX = rectGrid.left + rectGrid.width / 2;
     const offsetPx = gridCenterX - vpw / 2;
     this.grid.originX = this._safe(offsetPx * wuppX, 0);
+
+    if (!this.lockGridY) {
+      if (figs[0] && this.camera && this.renderer) {
+        const r0 = figs[0].getBoundingClientRect?.() || { top: 0, height: 0 };
+        const centerY = r0.top + r0.height * 0.5;
+        const yObj = this._worldYAtObjFromScreenY(centerY);
+        if (Number.isFinite(yObj)) this.grid.originY = yObj;
+      }
+    } else {
+      this.grid.originY = prevOriginY;
+    }
 
     const cellWorldMin = Math.max(0.0001, Math.min(this.grid.spacingX, this.grid.spacingY));
     this.grid.targetSize = cellWorldMin * 0.65;
@@ -545,14 +572,15 @@ class KMEngine {
         const node = root.clone(true);
         node.traverse(n => { if (n.isMesh) { n.castShadow = true; n.receiveShadow = true; n.frustumCulled = false; } });
 
-        this._normalize(node, this.grid.targetSize);
+        const targetSize = it.__special ? this.grid.targetSize * 1.1 : this.grid.targetSize;
+        this._normalize(node, targetSize);
 
         const pos = this._gridPos(idx);
         node.position.copy(pos);
         const baseQuat = node.quaternion.clone();
 
         this.group.add(node);
-        this.entries.set(it.id, { idx, root: node, baseQuat, pos, targetSize: this.grid.targetSize, handle: it.handle });
+        this.entries.set(it.id, { idx, root: node, baseQuat, pos, targetSize, handle: it.handle });
       } catch (e) { console.error('GLB load error', it.modelUrl, e); }
       idx++;
     }
@@ -589,17 +617,13 @@ class KMEngine {
   /* ---------- selection & camera ---------- */
   selectById(idOrNull) { this.selectedId = idOrNull || null; }
   setSelectionPlaneVisible(_) {}
-
   _unitsPerPxObj() { return this._wuppY(); }
-
   _camYForDesiredWorldY(desiredWorldY) { return desiredWorldY - this.SELECT_Y_OFFSET; }
 
   focusSelectedToAnchor() {
     if (!this.renderer || !this.camera) return;
-    // exits any section 3D mode
     this.camTarget = null;
     this.cam3DMode = false;
-
     this.prevScrollTop = this.contentEl?.scrollTop || 0;
     const { h } = this._getCanvasSize();
     const screenY = h * this.SELECT_ANCHOR_FRAC;
@@ -617,7 +641,6 @@ class KMEngine {
     this._returning = true;
   }
 
-  /* ======== NEW: 3D section camera ======== */
   _getSectionTargetVec(sectionKey) {
     const cfg = (SECTION_CAM_POS[sectionKey] || SECTION_CAM_POS.default || DEFAULT_CAM_POS);
     const x = Number(cfg.x); const y = Number(cfg.y); const z = Number(cfg.z);
@@ -631,7 +654,7 @@ class KMEngine {
   focusSectionToFixed(sectionKey) {
     if (!this.renderer || !this.camera) return;
     this.prevScrollTop = this.contentEl?.scrollTop || 0;
-    this.camTargetY = null; // disable 1D target
+    this.camTargetY = null;
     this.camTarget = this._getSectionTargetVec(sectionKey);
     this.cam3DMode = true;
     this.followScroll = false;
@@ -641,14 +664,12 @@ class KMEngine {
   releaseSectionToScroll() {
     const unitsPerPx = this._wuppY();
     const yFromPrevScroll = -(this.prevScrollTop || 0) * unitsPerPx;
-
-    this.camTargetY = null; // use 3D to go back, then hand-over to scroll
+    this.camTargetY = null;
     this.camTarget = new THREE.Vector3(DEFAULT_CAM_POS.x, yFromPrevScroll, DEFAULT_CAM_POS.z);
     this.cam3DMode = true;
     this._returning = true;
   }
 
-  /* ---------- relayout helpers ---------- */
   forceRelayoutNow() {
     try {
       if (!this._isViewportStable()) { this._afterStable(() => this.forceRelayoutNow()); return; }
@@ -670,7 +691,6 @@ class KMEngine {
     try { if (document?.fonts?.ready) document.fonts.ready.then(() => { setTimeout(run, 0); requestAnimationFrame(run); }); } catch {}
   }
 
-  /* ---------- scroll & resize ---------- */
   syncCameraToScroll() {
     if (!this.contentEl || !this.renderer || !this.camera) return;
     if (!this.followScroll) return;
@@ -696,41 +716,108 @@ class KMEngine {
     this.camera.aspect = window.innerWidth / Math.max(1, window.innerHeight);
     this.camera.updateProjectionMatrix();
 
-    this.syncGridFromDOM();
+    this.syncGridFromDOM();   // respects lockGridY
     this.relayoutEntries();
     this.syncCameraToScroll();
 
     this._updateShelvesLayout();
     this._layoutBarTop();
+    // character stick happens every frame in _loop, so no need here
   }
 
-  /* ---------- main loop ---------- */
+  /* ================= Character: wrapper that sticks to grid top ================= */
+  _ensureCharacterWrapper() {
+    this.ensureBgRefs();
+    if (!this.characterNode) return;
+
+    if (this.characterWrapper && this.characterWrapper.parent) return;
+
+    // If character node is already a neutral group, use it as wrapper
+    if (this.characterNode.isGroup && !this.characterNode.isSkinnedMesh && !this.characterNode.isBone) {
+      this.characterWrapper = this.characterNode;
+      return;
+    }
+
+    // Else, create a wrapper and reparent under it (no bone touched)
+    const wrapper = new THREE.Group();
+    wrapper.name = 'KM_characterWrapper';
+    const parent = this.characterNode.parent || this.bgContainer || this.scene;
+    parent.add(wrapper);
+    wrapper.add(this.characterNode);
+    this.characterWrapper = wrapper;
+  }
+
+  _cacheCharBindBottomY() {
+    this._ensureCharacterWrapper();
+    const root = this.characterWrapper || this.characterNode;
+    if (!root) return;
+
+    const invRoot = new THREE.Matrix4().copy(root.matrixWorld).invert();
+    const worldBox = new THREE.Box3();
+    const tmp = new THREE.Box3();
+
+    root.traverse((n) => {
+      if (!(n.isMesh || n.isSkinnedMesh) || !n.geometry) return;
+      if (!n.geometry.boundingBox) n.geometry.computeBoundingBox();
+      if (!n.geometry.boundingBox) return;
+      tmp.copy(n.geometry.boundingBox);
+      tmp.applyMatrix4(n.matrixWorld);   // ignores skinning movement
+      worldBox.union(tmp);
+    });
+
+    worldBox.applyMatrix4(invRoot);
+    this._charLocalBottomY = worldBox.min.y; // fixed in wrapper-local space
+  }
+
+  // Called every frame: keeps wrapper bottom pinned to top-of-grid (top shelf line)
+  _stickCharacterToGridTop(offset = 0) {
+    this._ensureCharacterWrapper();
+    if (!this.characterWrapper || !this.gridEl || !this.camera) return;
+    if (this._charLocalBottomY == null) this._cacheCharBindBottomY();
+
+    // Top of CSS grid in object-plane coords
+    const yTopObj = this.grid.originY + this.grid.spacingY * 0.5;
+
+    // Map that Y to the character wrapper's Z depth
+    const wp = new THREE.Vector3();
+    this.characterWrapper.getWorldPosition(wp);
+    const targetWorldY = this._mapYFromObjPlaneToZ(yTopObj, wp.z) + offset;
+
+    // Current wrapper bottom (from cached bind bottom)
+    const bottomWorldY = new THREE.Vector3(0, this._charLocalBottomY, 0)
+      .applyMatrix4(this.characterWrapper.matrixWorld).y;
+
+    const dy = targetWorldY - bottomWorldY;
+    if (Math.abs(dy) > 1e-6) {
+      this.characterWrapper.position.y += dy;         // move whole skeleton object
+      this.characterWrapper.updateMatrixWorld(true);  // no bones touched
+    }
+  }
+
+  /* ================= loop ================= */
   _loop() {
     if (!this.initialized) return;
     const dt = this.clock.getDelta();
 
     if (this.bgMixer) this.bgMixer.update(dt);
 
-    // 3D section camera easing
     if (this.cam3DMode && this.camTarget) {
       const k = 1 - Math.exp(-4.5 * dt);
       this.camera.position.lerp(this.camTarget, k);
       if (this.camera.position.distanceTo(this.camTarget) < 1e-3) {
         this.camera.position.copy(this.camTarget);
         if (this._returning) {
-          // hand control back to scroll
           this.followScroll = true;
           this.cam3DMode = false;
           this.camTarget = null;
           this._returning = false;
           this.syncCameraToScroll();
         } else {
-          this.camTarget = null; // hold position (stay in cam3DMode false)
+          this.camTarget = null;
           this.cam3DMode = false;
         }
       }
     }
-    // 1D (Y only) camera easing for product focus
     else if (!this.followScroll && this.camTargetY != null) {
       const k = 1 - Math.exp(-6 * dt);
       this.camera.position.y += (this.camTargetY - this.camera.position.y) * k;
@@ -756,6 +843,9 @@ class KMEngine {
       else entry.root.quaternion.slerp(entry.baseQuat, 1 - Math.exp(-6 * dt));
     }
 
+    // ⛳ keep character stuck to the top-of-grid at all times (wrapper-level, never bones)
+    this._stickCharacterToGridTop(0.0);
+
     this.renderer.render(this.scene, this.camera);
   }
 }
@@ -776,7 +866,6 @@ export default function ThreeCatalog({ products }) {
 
   const [selectedId, setSelectedId] = useState(null);
 
-  /* ---------- SECTION param (from URL, not routing) ---------- */
   const [section, setSection] = useState(null); // 'about' | 'legal' | null
   const readSectionFromURL = useCallback(() => {
     try {
@@ -801,7 +890,7 @@ export default function ThreeCatalog({ products }) {
       window.removeEventListener('km_section_changed', onSectionChanged);
     };
   }, [readSectionFromURL]);
-  
+
   // Clear section when selecting a product
   useEffect(() => {
     if (!selectedId) return;
@@ -888,14 +977,13 @@ export default function ThreeCatalog({ products }) {
     return 'Rechtliches Gedöns: Lorem ipsum dolor sit amet, consetetur sadipscing elitr.';
   }, []);
   const getIdleText = useCallback(() => {
-  // Priority: meta tag -> window var -> fallback
-  const meta = document.querySelector('meta[name="km:idle"]')?.content?.trim();
-  const win  = (typeof window !== 'undefined' && window.__KM_IDLE__) || '';
-  return meta || win || 'Willkommen im Kleidungsmarke Shop, Fremder!';
-}, []);
+    const meta = document.querySelector('meta[name="km:idle"]')?.content?.trim();
+    const win  = (typeof window !== 'undefined' && window.__KM_IDLE__) || '';
+    return meta || win || 'Willkommen im Kleidungsmarke Shop, Fremder!';
+  }, []);
 
-  /* ---------- items ---------- */
-  const items = useMemo(() => (products || []).map(p => ({
+  /* ---------- Base items from props ---------- */
+  const baseItems = useMemo(() => (products || []).map(p => ({
     id: p.id,
     handle: p.handle,
     name: p.title,
@@ -905,6 +993,66 @@ export default function ThreeCatalog({ products }) {
     posterUrl: p.posterUrl,
     available: p.availableForSale !== false,
   })), [products]);
+
+  /* ---------- SPECIAL collection loader ---------- */
+  const [specialCol, setSpecialCol] = useState({ title: SPECIAL_TITLE_FALLBACK, items: [], hasAny: false });
+  useEffect(() => {
+    let dead = false;
+    const adaptProducts = (arr = []) => {
+      return (arr || []).map((p, i) => ({
+        id: String(p.id || p.admin_graphql_api_id || p.legacyResourceId || `sp-${i}`),
+        handle: p.handle || p.handle?.toString?.() || '',
+        title: p.title || p.name || '',
+        price: p.price || p.priceV2 || { amount: p.price?.toString?.() || '0', currencyCode: p.currency || p.currencyCode || 'EUR' },
+        posterUrl: p.posterUrl || p.image?.src || p.featuredImage?.url || p.images?.[0]?.src || p.images?.nodes?.[0]?.url || '',
+        availableForSale: (typeof p.availableForSale === 'boolean') ? p.availableForSale : (p.available !== false),
+      }));
+    };
+    async function load() {
+      try {
+        const res = await fetch(`/api/collection?handle=${SPECIAL_HANDLE}`, { cache: 'no-store' });
+        if (res.ok) {
+          const json = await res.json();
+          const items = adaptProducts(json?.items || json?.products || []);
+          if (!dead && items.length) {
+            setSpecialCol({ title: json?.title || SPECIAL_TITLE_FALLBACK, items, hasAny: true });
+            return;
+          }
+        }
+      } catch {}
+      try {
+        const res = await fetch(`/collections/${SPECIAL_HANDLE}.json`, { cache: 'no-store' });
+        if (res.ok) {
+          const json = await res.json();
+          const items = adaptProducts(json?.collection?.products || json?.products || []);
+          if (!dead && items.length) {
+            setSpecialCol({ title: json?.collection?.title || SPECIAL_TITLE_FALLBACK, items, hasAny: true });
+            return;
+          }
+        }
+      } catch {}
+      if (!dead) setSpecialCol({ title: SPECIAL_TITLE_FALLBACK, items: [], hasAny: false });
+    }
+    load();
+    return () => { dead = true; };
+  }, []);
+
+  /* ---------- Merge items: inject special tile at position 0 ---------- */
+  const allItems = useMemo(() => {
+    if (!specialCol.hasAny) return baseItems;
+    const specialTile = {
+      id: '__special__',
+      handle: SPECIAL_HANDLE,
+      name: specialCol.title || SPECIAL_TITLE_FALLBACK,
+      modelUrl: SPECIAL_MODEL_URL,
+      posterUrl: specialCol.items?.[0]?.posterUrl || '',
+      available: true,
+      __special: true,
+      priceText: '',
+      currency: ''
+    };
+    return [specialTile, ...baseItems];
+  }, [baseItems, specialCol]);
 
   // initial ?sel
   const initialSelHandleRef = useRef(null);
@@ -916,12 +1064,12 @@ export default function ThreeCatalog({ products }) {
   }, []);
   useEffect(() => {
     const h = initialSelHandleRef.current;
-    if (!h || !items.length) return;
-    const m = items.find(i => i.handle === h);
+    if (!h || !allItems.length) return;
+    const m = allItems.find(i => i.handle === h);
     if (m) setSelectedId(m.id);
     initialSelHandleRef.current = null;
-  }, [items]);
-  
+  }, [allItems]);
+
   /* ---------- Engine init + background ---------- */
   useEffect(() => {
     const eng = getEngine(); if (!eng || !containerRef.current) return;
@@ -942,14 +1090,14 @@ export default function ThreeCatalog({ products }) {
     const eng = getEngine(); if (!eng) return;
     let cancelled = false;
     (async () => {
-      await eng.loadProducts(items);
+      await eng.loadProducts(allItems);
       if (!cancelled) {
         eng.attachGrid(gridRef.current);
         eng.relayoutEntries();
       }
     })();
     return () => { cancelled = true; };
-  }, [items]);
+  }, [allItems]);
 
   /* ---------- selection <-> UI ---------- */
   useEffect(() => {
@@ -965,6 +1113,8 @@ export default function ThreeCatalog({ products }) {
       else { contentEl.classList.remove('locked'); gridEl.classList.remove('disabled'); }
     }
 
+    eng.setLockGridY(!!lock);
+
     if (selectedId) eng.focusSelectedToAnchor();
     else if (section) eng.focusSectionToFixed(section);
     else eng.releaseSelectedToScroll();
@@ -975,21 +1125,21 @@ export default function ThreeCatalog({ products }) {
     document.body.dataset.kmSelected = isSel ? '1' : '0';
     const buy = document.getElementById('buyui'); if (buy) buy.setAttribute('data-active', isSel ? 'true' : 'false');
   }, [selectedId, section]);
-    useEffect(() => {
+
+  // periodic robustness relayout (keeps 3D responsive)
+  useEffect(() => {
     const eng = getEngine();
     if (!eng) return;
-    const interval = setInterval(() => {
-      eng._updateShelvesLayout?.();
-      eng._layoutBarTop?.();
-    }, 10);
+    const interval = setInterval(() => { eng._onResize(); }, 10);
     return () => clearInterval(interval);
   }, []);
+
   // reflect selection in URL (?sel=handle)
   useEffect(() => {
     try {
       const url = new URL(window.location.href);
       if (selectedId) {
-        const item = items.find(i => i.id === selectedId);
+        const item = allItems.find(i => i.id === selectedId);
         if (item?.handle) {
           url.searchParams.set('sel', item.handle);
           url.searchParams.delete('section');
@@ -999,7 +1149,7 @@ export default function ThreeCatalog({ products }) {
       }
       window.history.replaceState({}, '', url);
     } catch {}
-  }, [selectedId, items]);
+  }, [selectedId, allItems]);
 
   // read ?sel on history changes (only if no section)
   useEffect(() => {
@@ -1008,7 +1158,7 @@ export default function ThreeCatalog({ products }) {
         const u = new URL(window.location.href);
         const handle = u.searchParams.get('sel');
         if (!section && handle) {
-          const m = items.find(i => i.handle === handle);
+          const m = allItems.find(i => i.handle === handle);
           setSelectedId(m ? m.id : null);
         } else if (!section) {
           setSelectedId(null);
@@ -1023,19 +1173,15 @@ export default function ThreeCatalog({ products }) {
       window.removeEventListener('popstate', applyFromURL);
       window.removeEventListener('hashchange', applyFromURL);
     };
-  }, [items, section]);
+  }, [allItems, section]);
+
   useEffect(() => {
-  // Only show when we're on the catalog with no selection and no section
-  if (!selectedId && !section) {
-    const idle = getIdleText();
-    // Avoid re-triggering if it’s already showing
-    if (idle && bubble.text !== idle) {
-      window.kmSaySet?.(idle);
+    const eng = getEngine(); if (!eng) return;
+    if (!selectedId && !section) {
+      const idle = getIdleText();
+      if (idle && eng && typeof window !== 'undefined') window.kmSaySet?.(idle);
     }
-  }
-  // If you prefer the bubble to vanish when leaving this state, uncomment:
-  // else { window.kmSayClear?.(); }
-}, [selectedId, section, getIdleText, bubble.text]);
+  }, [selectedId, section, getIdleText]);
 
   /* ---------- section behavior ---------- */
   useEffect(() => {
@@ -1046,7 +1192,6 @@ export default function ThreeCatalog({ products }) {
       window.kmSaySet?.(msg);
       eng.focusSectionToFixed(section);
     } else {
-      //window.kmSayClear?.();
       eng.releaseSectionToScroll();
     }
   }, [section, getSectionText]);
@@ -1085,14 +1230,37 @@ export default function ThreeCatalog({ products }) {
 
   /* ---------- mobile 100vh fix ---------- */
   useEffect(() => {
-    function setVh() { document.documentElement.style.setProperty('--vh', `${window.innerHeight * 0.01}px`); }
+    const eng = getEngine();
+    let raf = 0;
+    const setVh = () => {
+      const vh = (window.visualViewport?.height || window.innerHeight) * 0.01;
+      document.documentElement.style.setProperty('--vh', `${vh}px`);
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => eng?.queueRelayout?.());
+    };
     setVh();
+    const vv = window.visualViewport;
+    vv?.addEventListener('resize', setVh);
+    vv?.addEventListener('scroll', setVh);
     window.addEventListener('resize', setVh);
     window.addEventListener('orientationchange', setVh);
     return () => {
+      vv?.removeEventListener('resize', setVh);
+      vv?.removeEventListener('scroll', setVh);
       window.removeEventListener('resize', setVh);
       window.removeEventListener('orientationchange', setVh);
+      cancelAnimationFrame(raf);
     };
+  }, []);
+
+  // keep 3D in sync with CSS grid box size changes
+  useEffect(() => {
+    const eng = getEngine();
+    const el = gridRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => eng?.queueRelayout?.());
+    ro.observe(el);
+    return () => ro.disconnect();
   }, []);
 
   /* ---------- overlay show/hide ---------- */
@@ -1112,12 +1280,12 @@ export default function ThreeCatalog({ products }) {
     return clamp(loaded / total, 0, 1);
   })();
 
-  const selected = selectedId ? items.find(i => i.id === selectedId) : null;
-  const selectedIdx = selected ? items.findIndex(i => i.id === selected.id) : -1;
+  const selected = selectedId ? allItems.find(i => i.id === selectedId) : null;
+  const selectedIdx = selected ? allItems.findIndex(i => i.id === selected.id) : -1;
 
   const buyNow = () => { if (!selected || !selected.available) return; router.push(`/products/${selected.handle}`); };
-  const selectPrev = () => { if (selectedIdx > 0) setSelectedId(items[selectedIdx - 1].id); };
-  const selectNext = () => { if (selectedIdx >= 0 && selectedIdx < items.length - 1) setSelectedId(items[selectedIdx + 1].id); };
+  const selectPrev = () => { if (selectedIdx > 0) setSelectedId(allItems[selectedIdx - 1].id); };
+  const selectNext = () => { if (selectedIdx >= 0 && selectedIdx < allItems.length - 1) setSelectedId(allItems[selectedIdx + 1].id); };
 
   function LoadingOverlay({ visible, pct }) {
     if (!visible) return null;
@@ -1149,14 +1317,15 @@ export default function ThreeCatalog({ products }) {
         <BuyUI
           selected={selected}
           selectedIdx={selectedIdx}
-          totalItems={items.length}
+          totalItems={allItems.length}
           onPrev={selectPrev}
           onNext={selectNext}
           onBuy={buyNow}
+          specialCollection={specialCol.hasAny ? specialCol : null}
         />
 
         <div className="grid" id="grid" ref={gridRef} aria-hidden={(!!selected || !!section) ? 'true' : 'false'}>
-          {items.map(p => (
+          {allItems.map(p => (
             <figure
               key={p.id}
               onClick={() => setSelectedId(p.id)}

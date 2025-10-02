@@ -12,22 +12,25 @@ function readCartCount() {
     return cart.reduce((n, l) => n + (l.qty || 1), 0);
   } catch { return 0; }
 }
-
 function getLockDebug() {
   if (typeof window !== 'undefined') {
     if (window.__KM_LOCK_DEBUG__ === true) return true;
-    try {
-      const q = new URLSearchParams(window.location.search);
-      if (q.get('lock') === '1') return true;
-    } catch {}
+    try { if (new URLSearchParams(window.location.search).get('lock') === '1') return true; } catch {}
   }
   return process.env.NEXT_PUBLIC_LOCK_DEBUG === '1';
 }
 const LOCK_DEBUG = getLockDebug();
+const titleCase = (s='') =>
+  s.replace(/[-_]+/g,' ')
+   .replace(/\s+/g,' ')
+   .trim()
+   .replace(/\b\p{L}/gu, m => m.toUpperCase());
 
 /* ================== iOS-style once-per-session overlay ================== */
 function LockOverlay({ productTitle }) {
   const pathname = usePathname();
+  const router = useRouter();
+
   const [visible, setVisible] = useState(false);
   const [now, setNow] = useState(() => new Date());
   const trackRef = useRef(null);
@@ -35,14 +38,69 @@ function LockOverlay({ productTitle }) {
   const drag = useRef({ active: false, startX: 0, offset: 0 });
 
   const [message, setMessage] = useState('Ey wir haben miesen Rabatt!');
+
+  // CTA parsing state (for @collectionhandle)
+  const [ctaHandle, setCtaHandle] = useState(null);
+  const [msgPre, setMsgPre] = useState('');
+  const [msgPost, setMsgPost] = useState('');
+
+  // Load welcome text: session cache -> /api/settings -> meta/window fallback
   useEffect(() => {
-    const meta = document.querySelector('meta[name="km:welcome"]')?.content?.trim();
-    const win  = (typeof window !== 'undefined' && window.__KM_WELCOME__) || '';
-    let msg = meta || win || 'Ey wir haben miesen Rabatt!';
+    let mounted = true;
+
+    const fallback = (() => {
+      try {
+        const meta = document.querySelector('meta[name="km:welcome"]')?.content?.trim();
+        const win  = (typeof window !== 'undefined' && window.__KM_WELCOME__) || '';
+        return meta || win || 'Ey wir haben miesen Rabatt!';
+      } catch { return 'Ey wir haben miesen Rabatt!'; }
+    })();
+
+    try {
+      const cached = sessionStorage.getItem('km_welcome_msg');
+      if (cached && mounted) setMessage(cached);
+      else if (mounted) setMessage(fallback);
+    } catch { if (mounted) setMessage(fallback); }
+
+    (async () => {
+      try {
+        const res = await fetch('/api/settings', { cache: 'no-store' });
+        if (res.ok) {
+          const json = await res.json();
+          const fromShop = (json?.welcome || '').trim();
+          if (fromShop && mounted) {
+            setMessage(fromShop);
+            try { sessionStorage.setItem('km_welcome_msg', fromShop); } catch {}
+          }
+        }
+      } catch { /* keep fallback */ }
+    })();
+
+    return () => { mounted = false; };
+  }, []);
+
+  // On product pages, override with "Neu: <title>"
+  useEffect(() => {
     const isProduct = pathname.startsWith('/products');
-    if (isProduct && productTitle) msg = `Neu: ${productTitle}`;
-    setMessage(msg);
+    if (isProduct && productTitle) setMessage(`Neu: ${productTitle}`);
   }, [pathname, productTitle]);
+
+  // Extract @collectionhandle → split message into pre/CTA/post
+  useEffect(() => {
+    const m = message || '';
+    const re = /@([a-z0-9][a-z0-9-_]*)/i;
+    const match = m.match(re);
+    if (match) {
+      setCtaHandle(match[1]);
+      const idx = match.index ?? 0;
+      setMsgPre(m.slice(0, idx).trimEnd());
+      setMsgPost(m.slice(idx + match[0].length).trimStart());
+    } else {
+      setCtaHandle(null);
+      setMsgPre(m);
+      setMsgPost('');
+    }
+  }, [message]);
 
   useEffect(() => {
     try {
@@ -71,6 +129,24 @@ function LockOverlay({ productTitle }) {
       try { sessionStorage.setItem('km_lock_seen', '1'); } catch {}
     }
   }, []);
+
+  // Allow external trigger to re-show the lock overlay
+  useEffect(() => {
+    const show = () => {
+      try { sessionStorage.removeItem('km_lock_seen'); } catch {}
+      setVisible(true);
+    };
+    window.addEventListener('km_lock_show', show);
+    return () => window.removeEventListener('km_lock_show', show);
+  }, []);
+
+  // CTA click handler (whole notification becomes clickable)
+  const openCTA = useCallback((e) => {
+    if (!ctaHandle) return;
+    e?.preventDefault?.();
+    unlock();
+    router.push(`/collections/${ctaHandle}`);
+  }, [ctaHandle, unlock, router]);
 
   useEffect(() => {
     if (!visible) return;
@@ -134,9 +210,6 @@ function LockOverlay({ productTitle }) {
 
   if (!visible) return null;
 
-  const timeStr = new Intl.DateTimeFormat(navigator.language || 'de-DE', {
-    hour: '2-digit', minute: '2-digit'
-  }).format(now);
   const dateStr = new Intl.DateTimeFormat(navigator.language || 'de-DE', {
     weekday: 'long', day: 'numeric', month: 'long'
   }).format(now);
@@ -149,13 +222,34 @@ function LockOverlay({ productTitle }) {
         <div className="km-lock-date">{dateStr}</div>
       </div>
 
-      <div className="km-lock-notif" aria-live="polite">
+      <div
+        className="km-lock-notif"
+        aria-live="polite"
+        onClick={ctaHandle ? openCTA : undefined}
+        onKeyDown={ctaHandle ? (e) => { if (e.key === 'Enter' || e.key === ' ') openCTA(e); } : undefined}
+        role={ctaHandle ? 'button' : undefined}
+        tabIndex={ctaHandle ? 0 : undefined}
+        style={ctaHandle ? { cursor: 'pointer' } : undefined}
+      >
         <div className="km-lock-notif-left" aria-hidden="true">
           <div className="km-lock-imsg-dot" />
         </div>
         <div className="km-lock-notif-body">
           <div className="km-lock-notif-title">Kleidungsmarke</div>
-          <div className="km-lock-notif-text">{message}</div>
+          <div className="km-lock-notif-text">
+            {msgPre}
+            {ctaHandle && (
+              <button
+                className="km-lock-cta"
+                onClick={openCTA}
+                aria-label={`Kollektion ${ctaHandle} öffnen`}
+                type="button"
+              >
+                öffnen
+              </button>
+            )}
+            {msgPost ? ` ${msgPost}` : ''}
+          </div>
         </div>
       </div>
 
@@ -175,23 +269,21 @@ export default function AppChrome({ title = 'Shop' }) {
   const router = useRouter();
 
   const isCatalog = pathname === '/' || pathname === '/shop';
+  const isCollection = pathname.startsWith('/collections');
   const isProduct = pathname.startsWith('/products');
 
-  // selection flag (for showing back button)
-  const [hasSelection, setHasSelection] = useState(false);
+  const isCollectionsIndex = pathname === '/collections' || pathname === '/collections/';
 
-  // track selection changes from catalog
+  // selection flag (only relevant on catalog)
+  const [hasSelection, setHasSelection] = useState(false);
   useEffect(() => {
-    const onSel = (e) => {
-      const selected = !!(e && e.detail && e.detail.selected);
-      setHasSelection(selected);
-    };
+    const onSel = (e) => setHasSelection(!!(e && e.detail && e.detail.selected));
     window.addEventListener('km_selected_change', onSel);
     return () => window.removeEventListener('km_selected_change', onSel);
   }, []);
 
-  /* ---------- SECTION param (read from URL & custom event) ---------- */
-  const [section, setSection] = useState(null); // 'about' | 'legal' | null
+  /* ---------- SECTION param ---------- */
+  const [section, setSection] = useState(null);
   const readSection = useCallback(() => {
     try {
       const sp = new URLSearchParams(window.location.search);
@@ -202,10 +294,7 @@ export default function AppChrome({ title = 'Shop' }) {
   useEffect(() => {
     readSection();
     const onPop = () => readSection();
-    const onEvt = (e) => {
-      const s = e.detail?.section || null;
-      setSection(s === 'about' || s === 'legal' ? s : null);
-    };
+    const onEvt = (e) => setSection((e.detail?.section === 'about' || e.detail?.section === 'legal') ? e.detail.section : null);
     window.addEventListener('popstate', onPop);
     window.addEventListener('hashchange', onPop);
     window.addEventListener('km_section_changed', onEvt);
@@ -216,32 +305,109 @@ export default function AppChrome({ title = 'Shop' }) {
     };
   }, [readSection]);
 
-  /* ---------- Back button: deselect on catalog; clear section if set ---------- */
+  /* ---------- Back button behavior ---------- */
+  const clearCatalogParams = useCallback(() => {
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('sel');
+      url.searchParams.delete('section');
+      window.history.pushState({}, '', url);
+    } catch {}
+  }, []);
+
+  const backFallbackTimer = useRef(null);
   const handleBack = useCallback(() => {
     if (isCatalog) {
-      if (hasSelection) {
-        window.dispatchEvent(new Event('km_clear_selection'));
+      // Home: if nothing active, re-show lockscreen; else clear selection/section
+      if (!hasSelection && !section) {
+        try { sessionStorage.removeItem('km_lock_seen'); } catch {}
+        window.dispatchEvent(new Event('km_lock_show'));
         return;
       }
-      if (section) {
-        const cur = new URL(window.location.href);
-        cur.searchParams.delete('section');
-        window.history.pushState({}, '', cur);
-        window.dispatchEvent(new CustomEvent('km_section_changed', { detail: { section: null } }));
-        return;
-      }
+      window.dispatchEvent(new Event('km_clear_selection'));
+      clearCatalogParams();
+      window.dispatchEvent(new CustomEvent('km_section_changed', { detail: { section: null } }));
       return;
     }
-    if (document.referrer && window.history.length > 1) router.back();
-    else router.push('/');
-  }, [isCatalog, hasSelection, section, router]);
 
-  /* ---------- Titles ---------- */
+    // Other pages: try history back with fallback
+    try {
+      const prevHref = window.location.href;
+      const onPopOnce = () => {
+        if (backFallbackTimer.current) { clearTimeout(backFallbackTimer.current); backFallbackTimer.current = null; }
+        window.removeEventListener('popstate', onPopOnce);
+      };
+      window.addEventListener('popstate', onPopOnce, { once: true });
+      router.back();
+
+      backFallbackTimer.current = setTimeout(() => {
+        if (window.location.href === prevHref) {
+          router.push('/');
+        }
+        backFallbackTimer.current = null;
+        window.removeEventListener('popstate', onPopOnce);
+      }, 400);
+    } catch {
+      router.push('/');
+    }
+  }, [isCatalog, hasSelection, section, router, clearCatalogParams]);
+
+  // New rules:
+  // - On ANY collection route (/collections or /collections/[handle]) -> label "shop", click routes to "/"
+  // - Everywhere else -> label "zurück", click handleBack (on home this may show lockscreen)
+  const backText = isCollection ? 'shop' : 'zurück';
+  const onBackClick = isCollection ? (() => router.push('/')) : handleBack;
+
+  /* ---------- Dynamic title ---------- */
   const routeTitles = { '/cart': 'Warenkorb', '/games': 'Games' };
   const sectionTitle = section === 'about' ? 'Über Uns' : section === 'legal' ? 'Rechtliches' : null;
+
+  // Collection title via DOM
+  const [collectionTitle, setCollectionTitle] = useState(null);
+  useEffect(() => {
+    if (!isCollection) { setCollectionTitle(null); return; }
+    const readNow = () => {
+      const h = document.querySelector('.collection-title');
+      const text = (h?.textContent || '').trim();
+      if (text) setCollectionTitle(text);
+      else {
+        const handle = (typeof window !== 'undefined' ? window.location.pathname.split('/').pop() : '') || '';
+        setCollectionTitle(titleCase(handle || 'Kollektion'));
+      }
+    };
+    readNow();
+    const target = document.querySelector('.collection-title') || document.body;
+    const obs = new MutationObserver(() => readNow());
+    obs.observe(target, { subtree: true, childList: true, characterData: true });
+    return () => obs.disconnect();
+  }, [isCollection]);
+
+  // Product title via DOM
+  const [productTitle, setProductTitle] = useState(null);
+  useEffect(() => {
+    if (!isProduct) { setProductTitle(null); return; }
+    const readNow = () => {
+      const h = document.querySelector('.product-title');
+      const text = (h?.textContent || '').trim();
+      if (text) setProductTitle(text);
+      else {
+        const t = (document.title || '').split('–')[0].trim();
+        setProductTitle(t || null);
+      }
+    };
+    readNow();
+    const obs = new MutationObserver(() => readNow());
+    obs.observe(document.body, { subtree: true, childList: true, characterData: true });
+    return () => obs.disconnect();
+  }, [isProduct]);
+
   const displayTitle = isCatalog
     ? (sectionTitle || 'Shop')
-    : (routeTitles[pathname] || title || 'Shop');
+    : isCollection
+      ? (isCollectionsIndex ? 'Kollektionen' : (collectionTitle || 'Kollektion'))
+      : isProduct
+        ? (productTitle || 'Produkt')
+        : (routeTitles[pathname] || title || 'Shop');
 
   /* ---------- Cart count ---------- */
   const [cartCount, setCartCount] = useState(0);
@@ -262,12 +428,11 @@ export default function AppChrome({ title = 'Shop' }) {
   }, []);
   const cartAria = cartCount > 0 ? `Warenkorb (${cartCount} Artikel)` : 'Warenkorb';
 
-  /* ---------- Bottom bar handlers (set section as URL param or navigate) ---------- */
+  /* ---------- Bottom bar handlers (section param) ---------- */
   const pushSectionParam = useCallback((next) => {
     if (typeof window === 'undefined') return;
 
     if (isCatalog) {
-      // In-place update on catalog
       const cur = new URL(window.location.href);
       if (next) {
         cur.searchParams.set('section', next);
@@ -279,7 +444,6 @@ export default function AppChrome({ title = 'Shop' }) {
       window.dispatchEvent(new CustomEvent('km_section_changed', { detail: { section: next || null } }));
       if (next) window.dispatchEvent(new Event('km_clear_selection'));
     } else {
-      // Not on catalog -> navigate to "/" with the param
       const q = next ? `?section=${encodeURIComponent(next)}` : '';
       router.push(`/${q}`);
     }
@@ -287,10 +451,13 @@ export default function AppChrome({ title = 'Shop' }) {
 
   const goShop  = () => {
     if (isCatalog) {
-        pushSectionParam(null);
-        handleBack();
+      pushSectionParam(null);
+      window.dispatchEvent(new Event('km_clear_selection'));
+      clearCatalogParams();
+      window.dispatchEvent(new CustomEvent('km_section_changed', { detail: { section: null } }));
+    } else {
+      router.push('/');
     }
-    else router.push('/');
   };
   const goAbout = () => pushSectionParam('about');
   const goLegal = () => pushSectionParam('legal');
@@ -307,13 +474,9 @@ export default function AppChrome({ title = 'Shop' }) {
     <>
       {/* Top leather bar */}
       <div className="chrome-topbar">
-        {(!isCatalog || hasSelection || !!section) ? (
-          <button className="chrome-btn arrow" onClick={handleBack} aria-label="Zurück">
-            <span>zurück</span>
-          </button>
-        ) : (
-          <span />
-        )}
+        <button className="chrome-btn arrow" onClick={onBackClick} aria-label={backText}>
+          <span>{backText}</span>
+        </button>
 
         <div className="chrome-title" aria-live="polite">{displayTitle}</div>
 
@@ -334,10 +497,9 @@ export default function AppChrome({ title = 'Shop' }) {
         <button type="button" onClick={goShop}  className={`chrome-tab box ${isActive('shop')}`}>Shop</button>
         <button type="button" onClick={goAbout} className={`chrome-tab box ${isActive('about')}`}>Über Uns</button>
         <button type="button" onClick={goLegal} className={`chrome-tab box ${isActive('legal')}`}>Rechtliches</button>
-        {/* <Link href="/games" className={`chrome-tab box ${isActive('games')}`}>Games</Link> */}
       </nav>
 
-      <LockOverlay />
+      <LockOverlay productTitle={productTitle || undefined} />
     </>
   );
 }

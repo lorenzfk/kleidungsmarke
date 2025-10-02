@@ -21,24 +21,24 @@ function isTrivialOptions(options) {
     .map(opt => ({ name: opt.name || '', values: Array.from(new Set(opt.values || [])) }))
     .filter(opt => {
       const isDefaultTitle =
-        opt.name.toLowerCase() === 'title' &&
-        opt.values.length === 1 &&
-        (opt.values[0] || '').toLowerCase() === 'default title';
-      return !isDefaultTitle && opt.values.length > 0;
+        opt.name?.toLowerCase?.() === 'title' &&
+        (opt.values?.length || 0) === 1 &&
+        (String(opt.values[0] || '')).toLowerCase() === 'default title';
+      return !isDefaultTitle && (opt.values?.length || 0) > 0;
     });
   if (filtered.length === 0) return true;
   return filtered.every(opt => (opt.values?.length || 0) <= 1);
 }
 function findVariant(variants, selected) {
-  const selMap = new Map(selected.map(o => [o.name, o.value]));
-  return variants.find(v =>
+  const selMap = new Map((selected || []).map(o => [o.name, o.value]));
+  return (variants || []).find(v =>
     (v.selectedOptions || []).every(o => selMap.get(o.name) === o.value)
   ) || null;
 }
 function initialSelected(options, variants, defaultVariantId) {
-  const def = variants.find(v => v.id === defaultVariantId);
+  const def = (variants || []).find(v => v.id === defaultVariantId);
   if (def && def.selectedOptions?.length) return def.selectedOptions;
-  return (options || []).map(opt => ({ name: opt.name, value: opt.values?.[0] || '' }));
+  return (options || []).map(opt => ({ name: opt.name, value: (opt.values?.[0] || '') }));
 }
 
 /* ---------- tiny, dependency-free carousel ---------- */
@@ -46,9 +46,7 @@ function HeroCarousel({ images, title }) {
   const list = Array.isArray(images) ? images.filter(i => i?.src) : [];
   if (list.length === 0) return null;
   if (list.length === 1) {
-    return (
-      <img className="product-poster" src={list[0].src} alt={list[0].alt || title} />
-    );
+    return <img className="product-poster" src={list[0].src} alt={list[0].alt || title} />;
   }
 
   const [idx, setIdx] = useState(0);
@@ -118,9 +116,6 @@ function HeroCarousel({ images, title }) {
     background: 'linear-gradient(to bottom, #85beffff, #1500ffff)',
     fontSize: 20,
     textShadow: '0 0 3px rgba(0,0,0,.5)',
-    textAling: 'right',
-    lineHeight: '0px',
-    padding: '-0',
     color: '#fff',
     width: 36,
     height: 36,
@@ -138,7 +133,6 @@ function HeroCarousel({ images, title }) {
         ))}
       </div>
 
-      {/* simple prev/next buttons */}
       <button aria-label="vorheriges Bild" onClick={prev} style={{ ...navBtn, left: 8 }}>◀︎</button>
       <button aria-label="nächstes Bild" onClick={next} style={{ ...navBtn, right: 8 }}>▶︎</button>
     </div>
@@ -147,67 +141,74 @@ function HeroCarousel({ images, title }) {
 
 /* ---------- PDP ---------- */
 export default function ProductDetailClient({ product, related = [] }) {
-  // Build a robust image list: posterUrl first, then product.images if any
+  // Harden against undefined product
+  const p = product || {};
+
+  // Build robust image list: posterUrl first, then product images
   const images = useMemo(() => {
     const list = [];
     const add = (src, alt='') => { if (src && !list.some(i => i.src === src)) list.push({ src, alt }); };
-    if (product.posterUrl) add(product.posterUrl, product.title);
-    if (Array.isArray(product.images)) {
-      product.images.forEach(i => add(i?.src || i?.url, i?.alt || i?.altText || product.title));
-    } else if (product.images?.nodes?.length) {
-      product.images.nodes.forEach(n => add(n?.url || n?.src, n?.altText || product.title));
-    } else if (product.images?.edges?.length) {
-      product.images.edges.forEach(e => add(e?.node?.url || e?.node?.src, e?.node?.altText || product.title));
-    } else if (product.image?.src) {
-      add(product.image.src, product.title);
+
+    if (p.posterUrl) add(p.posterUrl, p.title);
+
+    if (Array.isArray(p.images)) {
+      p.images.forEach(i => add(i?.src || i?.url, i?.alt || i?.altText || p.title));
+    } else if (p.images?.nodes?.length) {
+      p.images.nodes.forEach(n => add(n?.url || n?.src, n?.altText || p.title));
+    } else if (p.images?.edges?.length) {
+      p.images.edges.forEach(e => add(e?.node?.url || e?.node?.src, e?.node?.altText || p.title));
+    } else if (p.image?.src) {
+      add(p.image.src, p.title);
     }
+
     return list;
-  }, [product]);
+  }, [p]);
 
   const [selected, setSelected] = useState(
-    initialSelected(product.options || [], product.variants || [], product.defaultVariantId)
+    initialSelected(p.options || [], p.variants || [], p.defaultVariantId)
   );
 
   const hasOptions = useMemo(
-    () => !isTrivialOptions(product.options),
-    [product.options]
+    () => !isTrivialOptions(p.options),
+    [p.options]
   );
 
   const variant = useMemo(
-    () => findVariant(product.variants || [], selected) || null,
-    [product.variants, selected]
+    () => findVariant(p.variants || [], selected) || null,
+    [p.variants, selected]
   );
 
   const price = variant?.price || null;
-  const available = !!variant?.availableForSale;
+  const available = variant?.availableForSale ?? p.availableForSale ?? true;
+
+  // If we still don't have a real product payload (no id/title), render nothing
+  if (!p || (!p.id && !p.handle)) return null;
 
   return (
     <div className="product-page">
       <div className="container">
-        {/* hidden: we stay inside BuyUI */}
         <a style={{display:'none'}} className="btn-aqua btn-close back-link" href="/">← Katalog</a>
 
         <div className="product-hero">
-          {/* HERO: single image or carousel automatically */}
-          <HeroCarousel images={images} title={product.title} />
+          <HeroCarousel images={images} title={p.title} />
 
           <div className="product-info">
             {price && <div className="product-price">{priceText(price)}</div>}
-            <h1 style={{ display:'none' }} className="product-title">{product.title}</h1>
+            <h1 style={{ display:'none' }} className="product-title">{p.title}</h1>
 
             {hasOptions && (
               <VariantPicker
-                options={product.options || []}
-                variants={product.variants || []}
+                options={p.options || []}
+                variants={p.variants || []}
                 selected={selected}
                 onChange={setSelected}
               />
             )}
 
-            {!!product.descriptionHtml && (
+            {!!p.descriptionHtml && (
               <div
                 className="product-desc"
-                dangerouslySetInnerHTML={{ __html: product.descriptionHtml }}
+                dangerouslySetInnerHTML={{ __html: p.descriptionHtml }}
               />
             )}
 
@@ -218,7 +219,7 @@ export default function ProductDetailClient({ product, related = [] }) {
               />
             </div>
 
-            {!available && (
+            {available === false && (
               <div style={{ marginTop: 10, color: '#fff', opacity: .85 }}>
                 Aktuell nicht verfügbar für die gewählte Option.
               </div>
@@ -226,7 +227,6 @@ export default function ProductDetailClient({ product, related = [] }) {
           </div>
         </div>
 
-        {/* ----- Related products (optional) ----- */}
         {Array.isArray(related) && related.length > 0 && (
           <section className="related-section">
             <h2 className="related-title">Mehr von kleidungsmarke</h2>
