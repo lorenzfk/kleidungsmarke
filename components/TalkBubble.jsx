@@ -4,13 +4,14 @@ import { useEffect, useRef } from 'react';
 
 export default function TalkBubble({ text, x, y, visible }) {
   const ref = useRef(null);
+  const isVisible = visible && !!text;
 
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
 
     // retrigger one-shot animation whenever text becomes visible/changes
-    if (visible && text) {
+    if (isVisible) {
       el.classList.remove('pop');   // reset
       // force reflow so the next add re-triggers the animation
       // eslint-disable-next-line no-unused-expressions
@@ -19,23 +20,26 @@ export default function TalkBubble({ text, x, y, visible }) {
     } else {
       el.classList.remove('pop');
     }
-  }, [visible, text]);
+  }, [isVisible, text]);
 
   return (
     <div
       ref={ref}
       className="talk-bubble-wrap"
-      data-visible={visible && !!text ? '1' : '0'}
+      data-visible={isVisible ? '1' : '0'}
       style={{
         position: 'fixed',
         left: x,
         top: y,
         transform: 'translate(-90%, 0%)',
+        opacity: isVisible ? 1 : 0,
+        visibility: isVisible ? 'visible' : 'hidden',
         pointerEvents: 'none',
         zIndex:1,          // ensure above the canvas
       }}
       role="status"
       aria-live="polite"
+      aria-hidden={isVisible ? 'false' : 'true'}
     >
       <div className="talk-bubble">
         <div className="talk-bubble__inner">{text}</div>

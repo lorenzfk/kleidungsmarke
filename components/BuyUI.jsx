@@ -18,7 +18,7 @@ export default function BuyUI({
   onPrev,
   onNext,
   onBuy,
-  specialCollection,     // { title, items, hasAny } | null
+  specialCollection,     // { title, description, descriptionHtml?, items, hasAny } | null
 }) {
   const isSpecialSelected = !!(selected && selected.__special);
 
@@ -256,8 +256,15 @@ export default function BuyUI({
     return () => wood.removeEventListener('scroll', onScroll);
   }, []);
 
+  const cleanSpecialDescription = useMemo(() => {
+    if (!specialCollection?.description) return '';
+    return specialCollection.description.replace(/\s+/g, ' ').trim();
+  }, [specialCollection?.description]);
+
   const titleText = hasSelection
-    ? (isSpecialSelected ? (specialCollection?.title || 'Special') : (selected?.name || selected?.title || ''))
+    ? (isSpecialSelected
+        ? (cleanSpecialDescription || specialCollection?.title || 'Special')
+        : (selected?.name || selected?.title || ''))
     : '';
 
   return (
@@ -301,7 +308,12 @@ export default function BuyUI({
               {isSpecialSelected && (
                 <div className="buyui-detail">
                   {specialCollection?.hasAny ? (
-                    <CollectionClient title={specialCollection.title} items={specialCollection.items} />
+                    <CollectionClient
+                      title={specialCollection.title}
+                      description={specialCollection.description}
+                      descriptionHtml={specialCollection.descriptionHtml}
+                      items={specialCollection.items}
+                    />
                   ) : (
                     <div className="buyui-detail error">
                       <p>Diese Kollektion ist leer.</p>

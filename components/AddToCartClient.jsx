@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { playSound } from '@/lib/sound';
 import { variantGidToNumeric } from '@/lib/shopify';
 
 export default function AddToCartClient({ variantId, disabled = false }) {
@@ -16,6 +17,7 @@ export default function AddToCartClient({ variantId, disabled = false }) {
     localStorage.setItem('km_cart', JSON.stringify(cart));
     window.dispatchEvent(new Event('km_cart_updated'));
     setAdded(true);
+    playSound('cart');
   }
 
   function checkout() {

@@ -4,7 +4,12 @@
 import Link from 'next/link';
 import { useMemo } from 'react';
 
-export default function CollectionClient({ title = 'Kollektion', items = [] }) {
+export default function CollectionClient({
+  title = 'Kollektion',
+  description = '',
+  descriptionHtml = '',
+  items = [],
+}) {
   const products = useMemo(
     () =>
       (items || []).map((p) => ({
@@ -23,6 +28,16 @@ export default function CollectionClient({ title = 'Kollektion', items = [] }) {
     <div className="collection-page">
       <div className="collection-header">
         <h1 className="collection-title">{title}</h1>
+        {(descriptionHtml || description) && (
+          descriptionHtml ? (
+            <div
+              className="collection-description"
+              dangerouslySetInnerHTML={{ __html: descriptionHtml }}
+            />
+          ) : (
+            <p className="collection-description">{description}</p>
+          )
+        )}
       </div>
 
       <ul className="collection-list">

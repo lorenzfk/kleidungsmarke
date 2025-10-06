@@ -4,6 +4,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState, useRef, useCallback } from 'react';
+import { playSound, toggleMute, isMuted as getMutedState, onMuteChange, configureSoundEffects } from '@/lib/sound';
 
 /* ========================= helpers ========================= */
 function readCartCount() {
@@ -43,6 +44,13 @@ function LockOverlay({ productTitle }) {
   const [ctaHandle, setCtaHandle] = useState(null);
   const [msgPre, setMsgPre] = useState('');
   const [msgPost, setMsgPost] = useState('');
+
+  const showLockscreen = useCallback(() => {
+    setVisible(prev => {
+      if (!prev) playSound('lock');
+      return true;
+    });
+  }, []);
 
   // Load welcome text: session cache -> /api/settings -> meta/window fallback
   useEffect(() => {
@@ -105,15 +113,15 @@ function LockOverlay({ productTitle }) {
   useEffect(() => {
     try {
       if (LOCK_DEBUG) {
-        setVisible(true);
+        showLockscreen();
         sessionStorage.removeItem('km_lock_seen');
       } else if (!sessionStorage.getItem('km_lock_seen')) {
-        setVisible(true);
+        showLockscreen();
       }
     } catch {
-      if (LOCK_DEBUG) setVisible(true);
+      if (LOCK_DEBUG) showLockscreen();
     }
-  }, [pathname]);
+  }, [pathname, showLockscreen]);
 
   useEffect(() => {
     if (!visible) return;
@@ -124,6 +132,7 @@ function LockOverlay({ productTitle }) {
   }, [visible]);
 
   const unlock = useCallback(() => {
+    playSound('unlock');
     setVisible(false);
     if (!LOCK_DEBUG) {
       try { sessionStorage.setItem('km_lock_seen', '1'); } catch {}
@@ -134,11 +143,11 @@ function LockOverlay({ productTitle }) {
   useEffect(() => {
     const show = () => {
       try { sessionStorage.removeItem('km_lock_seen'); } catch {}
-      setVisible(true);
+      showLockscreen();
     };
     window.addEventListener('km_lock_show', show);
     return () => window.removeEventListener('km_lock_show', show);
-  }, []);
+  }, [showLockscreen]);
 
   // CTA click handler (whole notification becomes clickable)
   const openCTA = useCallback((e) => {
@@ -274,6 +283,22 @@ export default function AppChrome({ title = 'Shop' }) {
 
   const isCollectionsIndex = pathname === '/collections' || pathname === '/collections/';
 
+  useEffect(() => {
+    configureSoundEffects({
+      cart: '/sounds/cart.mp3',
+      unlock: '/sounds/unlock.mp3',
+      lock: '/sounds/lock.mp3',
+      bubble: '/sounds/bubble.mp3',
+    });
+  }, []);
+
+  const [muted, setMuted] = useState(() => getMutedState());
+  useEffect(() => {
+    const unsubscribe = onMuteChange(setMuted);
+    return unsubscribe;
+  }, []);
+  const toggleSound = useCallback(() => { toggleMute(); }, []);
+
   // selection flag (only relevant on catalog)
   const [hasSelection, setHasSelection] = useState(false);
   useEffect(() => {
@@ -366,21 +391,41 @@ export default function AppChrome({ title = 'Shop' }) {
   const [collectionTitle, setCollectionTitle] = useState(null);
   useEffect(() => {
     if (!isCollection) { setCollectionTitle(null); return; }
+
+    const parts = pathname.split('/').filter(Boolean);
+    const handle = parts[0] === 'collections' ? parts[1] || null : null;
+    const squash = (val) => (typeof val === 'string' ? val.replace(/\s+/g, ' ').trim() : '');
+
     const readNow = () => {
-      const h = document.querySelector('.collection-title');
-      const text = (h?.textContent || '').trim();
-      if (text) setCollectionTitle(text);
-      else {
-        const handle = (typeof window !== 'undefined' ? window.location.pathname.split('/').pop() : '') || '';
-        setCollectionTitle(titleCase(handle || 'Kollektion'));
+      const titleEl = document.querySelector('.collection-title');
+      const descEl = document.querySelector('.collection-description');
+      const titleText = squash(titleEl?.textContent || '');
+      const descText = squash(descEl?.textContent || '');
+
+      if (handle === 'special' && descText) {
+        setCollectionTitle(descText);
+        return;
       }
+
+      if (titleText) {
+        setCollectionTitle(titleText);
+        return;
+      }
+
+      if (handle) {
+        setCollectionTitle(titleCase(handle));
+        return;
+      }
+
+      setCollectionTitle('Kollektion');
     };
+
     readNow();
-    const target = document.querySelector('.collection-title') || document.body;
+    const target = document.querySelector('.collection-page') || document.querySelector('.collection-title') || document.body;
     const obs = new MutationObserver(() => readNow());
     obs.observe(target, { subtree: true, childList: true, characterData: true });
     return () => obs.disconnect();
-  }, [isCollection]);
+  }, [isCollection, pathname]);
 
   // Product title via DOM
   const [productTitle, setProductTitle] = useState(null);
@@ -497,6 +542,14 @@ export default function AppChrome({ title = 'Shop' }) {
         <button type="button" onClick={goShop}  className={`chrome-tab box ${isActive('shop')}`}>Shop</button>
         <button type="button" onClick={goAbout} className={`chrome-tab box ${isActive('about')}`}>Über Uns</button>
         <button type="button" onClick={goLegal} className={`chrome-tab box ${isActive('legal')}`}>Rechtliches</button>
+        <button
+          type="button"
+          onClick={toggleSound}
+          className={`chrome-tab box sound ${muted ? 'is-muted' : ''}`}
+          aria-pressed={muted ? 'true' : 'false'}
+        >
+          {muted ? '🔇 Ton aus' : '🔊 Ton an'}
+        </button>
       </nav>
 
       <LockOverlay productTitle={productTitle || undefined} />

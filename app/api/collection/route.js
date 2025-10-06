@@ -7,7 +7,7 @@ export const revalidate = 0;
 
 /**
  * GET /api/collection?handle=<handle>&limit=<n?>
- * Returns: { title, items }
+ * Returns: { title, description, descriptionHtml, items }
  */
 export async function GET(req) {
   try {
@@ -25,10 +25,12 @@ export async function GET(req) {
     // Reuse your existing server util
     const result = await getCollectionItems(handle, { limit });
     const title = result?.title ?? handle;
+    const description = typeof result?.description === 'string' ? result.description : '';
+    const descriptionHtml = typeof result?.descriptionHtml === 'string' ? result.descriptionHtml : '';
     const items = Array.isArray(result?.items) ? result.items : (result || []);
 
     return NextResponse.json(
-      { title, items },
+      { title, description, descriptionHtml, items },
       { status: 200, headers: { 'Cache-Control': 'no-store' } }
     );
   } catch (err) {

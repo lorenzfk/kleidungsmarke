@@ -14,6 +14,19 @@ export default async function CollectionPage(props) {
 
   if (!handle) notFound();
 
-  const { title, items } = await getCollectionItems(handle);
-  return <CollectionClient title={title} items={items} />;
+  const {
+    title,
+    description = '',
+    descriptionHtml = '',
+    items,
+  } = await getCollectionItems(handle);
+
+  return (
+    <CollectionClient
+      title={title}
+      description={description}
+      descriptionHtml={descriptionHtml}
+      items={items}
+    />
+  );
 }
