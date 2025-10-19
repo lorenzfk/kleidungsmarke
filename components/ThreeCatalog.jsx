@@ -302,7 +302,7 @@ export default function ThreeCatalog({ products }) {
           })}
         </div>
 
-        <div style={{ height: '30vh' }} />
+        <div style={{ height: '12vh' }} />
       </div>
     </>
   );
