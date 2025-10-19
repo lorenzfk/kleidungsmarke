@@ -530,22 +530,24 @@ export default function AppChrome({ title = 'Shop' }) {
     <>
       {/* Top leather bar */}
       <div className="chrome-topbar">
-        <button className="chrome-btn arrow" onClick={onBackClick} aria-label={backText}>
-          <span>{backText}</span>
-        </button>
+        <div className="chrome-topbar__inner">
+          <button className="chrome-btn arrow" onClick={onBackClick} aria-label={backText}>
+            <span>{backText}</span>
+          </button>
 
-        <div className="chrome-title" aria-live="polite">{displayTitle}</div>
+          <div className="chrome-title" aria-live="polite">{displayTitle}</div>
 
-        <Link href="/cart" className="chrome-btn box chrome-cart" aria-label={cartAria}>
-          <span>Warenkorb</span>
-          <span
-            className="cart-badge"
-            aria-hidden={cartCount === 0}
-            style={{ opacity: cartCount === 0 ? 0 : 1, transition: 'opacity .2s' }}
-          >
-            {cartCount}
-          </span>
-        </Link>
+          <Link href="/cart" className="chrome-btn box chrome-cart" aria-label={cartAria}>
+            <span>Warenkorb</span>
+            <span
+              className="cart-badge"
+              aria-hidden={cartCount === 0}
+              style={{ opacity: cartCount === 0 ? 0 : 1, transition: 'opacity .2s' }}
+            >
+              {cartCount}
+            </span>
+          </Link>
+        </div>
       </div>
 
       {/* Bottom leather bar */}

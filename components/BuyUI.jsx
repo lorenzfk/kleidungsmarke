@@ -297,26 +297,28 @@ export default function BuyUI({
       <div className="buyui-wrap">
         {/* Leather middle bar */}
         <div className="buyui-bar">
-          <button
-            className={`buyui-btn arrow-left${atStart ? ' disabled' : ''}`}
-            onClick={handlePrev}
-            disabled={atStart}
-            aria-label="letztes Produkt"
-          >
-            <span>letztes</span>
-          </button>
+          <div className="buyui-bar__inner">
+            <button
+              className={`buyui-btn arrow-left${atStart ? ' disabled' : ''}`}
+              onClick={handlePrev}
+              disabled={atStart}
+              aria-label="letztes Produkt"
+            >
+              <span>letztes</span>
+            </button>
 
-          {/* keep id=buyTitle so AppChrome can read it */}
-          <h2 id="buyTitle" className="buyui-title">{titleText}</h2>
+            {/* keep id=buyTitle so AppChrome can read it */}
+            <h2 id="buyTitle" className="buyui-title">{titleText}</h2>
 
-          <button
-            className={`buyui-btn arrow-right${atEnd ? ' disabled' : ''}`}
-            onClick={handleNext}
-            disabled={atEnd}
-            aria-label="nächstes Produkt"
-          >
-            <span>nächstes</span>
-          </button>
+            <button
+              className={`buyui-btn arrow-right${atEnd ? ' disabled' : ''}`}
+              onClick={handleNext}
+              disabled={atEnd}
+              aria-label="nächstes Produkt"
+            >
+              <span>nächstes</span>
+            </button>
+          </div>
         </div>
 
         {/* Wood panel with embedded content */}

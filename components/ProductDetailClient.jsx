@@ -45,9 +45,6 @@ function initialSelected(options, variants, defaultVariantId) {
 function HeroCarousel({ images, title }) {
   const list = Array.isArray(images) ? images.filter(i => i?.src) : [];
   if (list.length === 0) return null;
-  if (list.length === 1) {
-    return <img className="product-poster" src={list[0].src} alt={list[0].alt || title} />;
-  }
 
   const [idx, setIdx] = useState(0);
   const wrap = useRef(null);
@@ -58,7 +55,7 @@ function HeroCarousel({ images, title }) {
   // swipe support
   useEffect(() => {
     const el = wrap.current;
-    if (!el) return;
+    if (!el || list.length <= 1) return;
     let startX = 0, curX = 0, dragging = false;
 
     const onDown = (e) => {
@@ -94,18 +91,21 @@ function HeroCarousel({ images, title }) {
 
   const trackStyle = {
     width: '100%',
-    position: 'relative',
-    overflow: 'hidden',
-    borderRadius: '12px',
+    height: '100%',
   };
   const innerStyle = {
     display: 'flex',
     width: `${list.length * 100}%`,
     transform: `translateX(-${idx * (100 / list.length)}%)`,
     transition: 'transform .35s ease',
+    height: '100%',
   };
-  const slideStyle = { width: `${100 / list.length}%`, flex: '0 0 auto' };
-  const imgStyle = { width: '100%', height: 'auto', display: 'block' };
+  const slideStyle = {
+    width: `${100 / list.length}%`,
+    flex: '0 0 auto',
+    height: '100%',
+    position: 'relative',
+  };
 
   const navBtn = {
     position: 'absolute',
@@ -123,20 +123,36 @@ function HeroCarousel({ images, title }) {
     cursor: 'pointer',
   };
 
-  return (
-    <div ref={wrap} style={trackStyle} aria-roledescription="carousel" aria-label="Produktbilder">
-      <div style={innerStyle}>
-        {list.map((img, i) => (
-          <div key={i} style={slideStyle}>
-            <img className="product-poster" style={imgStyle} src={img.src} alt={img.alt || title} />
+  const content = (
+    <div className="product-poster">
+      <div className="product-poster__square">
+        <div
+          ref={wrap}
+          className="product-poster__carousel"
+          style={trackStyle}
+          aria-roledescription={list.length > 1 ? 'carousel' : undefined}
+          aria-label="Produktbilder"
+        >
+          <div className="product-poster__inner" style={innerStyle}>
+            {list.map((img, i) => (
+              <div key={i} className="product-poster__slide" style={slideStyle}>
+                <img className="product-poster__img" src={img.src} alt={img.alt || title} />
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
 
-      <button aria-label="vorheriges Bild" onClick={prev} style={{ ...navBtn, left: 8 }}>◀︎</button>
-      <button aria-label="nächstes Bild" onClick={next} style={{ ...navBtn, right: 8 }}>▶︎</button>
+          {list.length > 1 && (
+            <>
+              <button aria-label="vorheriges Bild" onClick={prev} style={{ ...navBtn, left: 12 }}>◀︎</button>
+              <button aria-label="nächstes Bild" onClick={next} style={{ ...navBtn, right: 12 }}>▶︎</button>
+            </>
+          )}
+        </div>
+      </div>
     </div>
   );
+
+  return content;
 }
 
 /* ---------- PDP ---------- */
