@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useRef, useEffect } from 'react';
+import { useMemo, useState, useRef, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import AddToCartClient from '@/components/AddToCartClient';
 import VariantPicker from '@/components/VariantPicker';
@@ -47,10 +47,11 @@ function HeroCarousel({ images, title }) {
   if (list.length === 0) return null;
 
   const [idx, setIdx] = useState(0);
+  const [resizeTick, setResizeTick] = useState(0);
   const wrap = useRef(null);
-  const clamp = (n) => (n + list.length) % list.length;
-  const prev = () => setIdx(i => clamp(i - 1));
-  const next = () => setIdx(i => clamp(i + 1));
+  const clamp = useCallback((n) => (n + list.length) % list.length, [list.length]);
+  const prev = useCallback(() => setIdx((i) => clamp(i - 1)), [clamp]);
+  const next = useCallback(() => setIdx((i) => clamp(i + 1)), [clamp]);
 
   // swipe support
   useEffect(() => {
@@ -86,6 +87,16 @@ function HeroCarousel({ images, title }) {
       el.removeEventListener('touchstart', onDown);
       el.removeEventListener('touchmove', onMove);
       el.removeEventListener('touchend', onUp);
+    };
+  }, [list.length, next, prev]);
+
+  useEffect(() => {
+    const handle = () => setResizeTick((t) => t + 1);
+    window.addEventListener('resize', handle);
+    window.addEventListener('orientationchange', handle);
+    return () => {
+      window.removeEventListener('resize', handle);
+      window.removeEventListener('orientationchange', handle);
     };
   }, []);
 
@@ -133,7 +144,7 @@ function HeroCarousel({ images, title }) {
           aria-roledescription={list.length > 1 ? 'carousel' : undefined}
           aria-label="Produktbilder"
         >
-          <div className="product-poster__inner" style={innerStyle}>
+          <div className="product-poster__inner" style={innerStyle} key={resizeTick}>
             {list.map((img, i) => (
               <div key={i} className="product-poster__slide" style={slideStyle}>
                 <img className="product-poster__img" src={img.src} alt={img.alt || title} />

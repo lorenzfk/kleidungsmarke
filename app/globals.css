@@ -277,7 +277,7 @@ iframe{
 
 .product-poster {
   position: relative;
-  width: min(90vw, 60vh);
+  width: min(92vw, 520px);
   margin: 0 auto;
 }
 .product-poster__square {
@@ -393,7 +393,7 @@ iframe{
 .cart-lineTitle { color:var(--text-color); font-weight: 700; }
 .cart-variant   { color:var(--text-color); opacity:.8; font-size:.95rem; margin-top:4px; }
 
-.cart-controls { display:flex; align-items:center; justify-content:space-between; margin-top:10px; gap: 12px; }
+.cart-controls { display:flex; align-items:center; justify-content:space-between; margin-top:10px; gap: 12px; flex-wrap: wrap; width: 100%; }
 .qty { display:flex; align-items:center; gap:8px; }
 .qty button { width:32px; height:32px; border-radius:8px; border:0; }
 .qty input  { width:64px; padding:6px 8px; border-radius:8px; border:0; }
@@ -412,6 +412,29 @@ iframe{
   margin-top: 30px; width: 100%;
 }
 .cart-actions .btn-buy { flex: 1; }
+
+@media (max-width: 540px) {
+  .cart-item {
+    grid-template-columns: 1fr;
+  }
+  .cart-img {
+    width: 100%;
+    height: auto;
+    max-height: 220px;
+    object-fit: cover;
+  }
+  .cart-controls {
+    gap: 10px;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .line-price {
+    align-self: flex-end;
+  }
+  .cart-actions {
+    flex-direction: column;
+  }
+}
 
 .legal-page { position: relative; z-index: 2; padding: 80px 0 120px; }
 .legal-page .container { width: min(92vw, var(--grid-max)); margin: 0 auto; color: var(--text-color); }
@@ -860,23 +883,23 @@ width: 100%; }
   box-shadow: 0 12px 24px rgba(0,0,0,.28);
 }
 .buyui-bar__inner {
-  max-width: 1400px;
+  max-width: 1000px;
   margin: 0 auto;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   gap: 12px;
   height: 100%;
-  padding: 0 0px;
+  padding: 0 12px;
 }
 
 .buyui-title{
-  flex: 1;
+  flex: 1 1 auto;
   min-width: 0;
-  max-width: 100%;
   padding: 0 8px;
-  font-size: clamp(1rem, 3.4vw, 1.55rem);
-  line-height: 1.15;
+  font-size: clamp(1.1rem, 3.6vw, 2rem);
+  line-height: 1.18;
+  text-align: center;
   overflow-wrap: anywhere;
   word-break: break-word;
 }
@@ -913,6 +936,16 @@ width: 100%; }
   background-image: url('/ui/btn-arrow-flip.png');   /* provided flipped PNG */
 }
 .buyui-btn.disabled{ filter: grayscale(1) brightness(.9); opacity: 0; cursor: not-allowed; }
+
+@media (max-width: 768px) {
+  .buyui-btn.arrow-left,
+  .buyui-btn.arrow-right {
+    display: none;
+  }
+  .buyui-title {
+    font-size: clamp(1.2rem, 5.2vw, 2.2rem);
+  }
+}
 
 #buyui.expand{
   hheight: calc(100vh - 72px);
