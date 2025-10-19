@@ -4,9 +4,22 @@ import { shopifyFetch } from '@/lib/shopify';
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  // Try multiple identifiers so you can keep Shopify's default "custom.*"
+  // Prefer metaobject (type: km_lockscreen, handle: lockscreen) but keep metafield fallback
   const QUERY = /* GraphQL */ `
     query LockWelcome {
+      lockscreen: metaobject(handle: { handle: "lockscreen", type: "km_lockscreen" }) {
+        id
+        updatedAt
+        message: field(key: "message") { value }
+        background: field(key: "background") {
+          value
+          reference {
+            __typename
+            ... on MediaImage { image { url } }
+            ... on GenericFile { url }
+          }
+        }
+      }
       shop {
         metafields(identifiers: [
           { namespace: "km",     key: "welcome" },
@@ -25,10 +38,30 @@ export async function GET() {
 
   try {
     const data = await shopifyFetch(QUERY, {}, { attempts: 4, timeoutMs: 8000 });
+    const lockscreen = data?.lockscreen || null;
+
+    const backgroundRef = lockscreen?.background;
+    const backgroundUrl = (() => {
+      const ref = backgroundRef?.reference;
+      if (ref?.__typename === 'MediaImage') return ref.image?.url || null;
+      if (ref?.url) return ref.url;
+      const raw = backgroundRef?.value || '';
+      return /^https?:\/\//.test(raw) ? raw : null;
+    })();
+
+    const welcomeFromMetaobject = (lockscreen?.message?.value || '').trim();
+
     const list = data?.shop?.metafields || [];
-    const first = list.find(m => (m?.value || '').trim().length > 0);
-    const welcome = (first?.value || '').trim();
-    return Response.json({ welcome, from: first ? `${first.namespace}.${first.key}` : null, updatedAt: first?.updatedAt || null });
+    const fallback = list.find(m => (m?.value || '').trim().length > 0);
+    const welcomeFallback = (fallback?.value || '').trim();
+
+    const welcome = welcomeFromMetaobject || welcomeFallback;
+    const from = welcomeFromMetaobject
+      ? 'metaobject.km_lockscreen.message'
+      : fallback ? `${fallback.namespace}.${fallback.key}` : null;
+    const updatedAt = lockscreen?.updatedAt || fallback?.updatedAt || null;
+
+    return Response.json({ welcome, from, updatedAt, backgroundUrl });
   } catch (err) {
     console.error('[api/settings] welcome fetch failed:', err?.message || err);
     return Response.json({ welcome: '' }, { status: 200 });

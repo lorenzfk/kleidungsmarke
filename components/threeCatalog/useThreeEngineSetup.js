@@ -5,25 +5,27 @@ import { useEffect } from 'react';
 import { BG_URL } from '@/lib/three-catalog/constants';
 import { getEngine } from '@/lib/three-catalog/engine';
 
-export default function useThreeEngineSetup({ containerRef, contentRef, gridRef, items }) {
+export default function useThreeEngineSetup({ containerRef, contentRef, items, backgroundUrl }) {
   // Engine init + background
   useEffect(() => {
     const eng = getEngine();
     if (!eng || !containerRef?.current) return;
 
+    const targetUrl = backgroundUrl || BG_URL;
+    eng._pendingBackgroundUrl = targetUrl;
+
     eng.init(containerRef.current);
     if (contentRef?.current) eng.attachScroll(contentRef.current);
-    if (!eng.bgLoaded) eng.loadBackgroundOnce(BG_URL);
-    else window.dispatchEvent(new CustomEvent('km_loading_progress', { detail: { phase: 'done', loaded: 1, total: 1 } }));
-  }, [containerRef, contentRef]);
 
-  // Attach grid whenever available
-  useEffect(() => {
-    const eng = getEngine();
-    if (!eng) return;
-    const node = gridRef?.current;
-    if (node) eng.attachGrid(node);
-  }, [gridRef]);
+    if (eng.bgUrl !== BG_URL) {
+      eng._clearBackground?.();
+      eng.bgLoaded = false;
+    }
+    if (!eng.bgLoaded) eng.loadBackgroundOnce(BG_URL);
+    eng.setSceneBackground?.(targetUrl);
+
+    window.dispatchEvent(new CustomEvent('km_loading_progress', { detail: { phase: 'done', loaded: 1, total: 1 } }));
+  }, [containerRef, contentRef, backgroundUrl]);
 
   // Load products
   useEffect(() => {
@@ -34,14 +36,12 @@ export default function useThreeEngineSetup({ containerRef, contentRef, gridRef,
     (async () => {
       await eng.loadProducts(items || []);
       if (!cancelled) {
-        const node = gridRef?.current;
-        if (node) eng.attachGrid(node);
         eng.relayoutEntries();
       }
     })();
 
     return () => { cancelled = true; };
-  }, [items, gridRef]);
+  }, [items]);
 
   // Periodic robustness resize
   useEffect(() => {
@@ -93,13 +93,12 @@ export default function useThreeEngineSetup({ containerRef, contentRef, gridRef,
     };
   }, []);
 
-  // Keep 3D in sync with CSS grid size changes
+  // Keep 3D in sync with viewport size changes
   useEffect(() => {
     const eng = getEngine();
-    const node = gridRef?.current;
-    if (!eng || !node || typeof ResizeObserver === 'undefined') return;
+    if (!eng || typeof ResizeObserver === 'undefined') return;
     const ro = new ResizeObserver(() => eng?.queueRelayout?.());
-    ro.observe(node);
+    ro.observe(document.body);
     return () => ro.disconnect();
-  }, [gridRef]);
+  }, []);
 }

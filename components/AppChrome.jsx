@@ -39,6 +39,14 @@ function LockOverlay({ productTitle }) {
   const drag = useRef({ active: false, startX: 0, offset: 0 });
 
   const [message, setMessage] = useState('Ey wir haben miesen Rabatt!');
+  const [backgroundUrl, setBackgroundUrl] = useState(() => {
+    if (typeof window === 'undefined') return '';
+    try {
+      return sessionStorage.getItem('km_lock_bg') || '';
+    } catch {
+      return '';
+    }
+  });
 
   // CTA parsing state (for @collectionhandle)
   const [ctaHandle, setCtaHandle] = useState(null);
@@ -80,18 +88,17 @@ function LockOverlay({ productTitle }) {
             setMessage(fromShop);
             try { sessionStorage.setItem('km_welcome_msg', fromShop); } catch {}
           }
+          const bg = (json?.backgroundUrl || '').trim();
+          if (bg && mounted) {
+            setBackgroundUrl(bg);
+            try { sessionStorage.setItem('km_lock_bg', bg); } catch {}
+          }
         }
       } catch { /* keep fallback */ }
     })();
 
     return () => { mounted = false; };
   }, []);
-
-  // On product pages, override with "Neu: <title>"
-  useEffect(() => {
-    const isProduct = pathname.startsWith('/products');
-    if (isProduct && productTitle) setMessage(`Neu: ${productTitle}`);
-  }, [pathname, productTitle]);
 
   // Extract @collectionhandle → split message into pre/CTA/post
   useEffect(() => {
@@ -225,7 +232,10 @@ function LockOverlay({ productTitle }) {
 
   return (
     <div className="km-lock" role="dialog" aria-modal="true" aria-label="Willkommen">
-      <div className="km-lock-bg" />
+      <div
+        className="km-lock-bg"
+        style={backgroundUrl ? { '--km-lock-img': `url(${backgroundUrl})` } : undefined}
+      />
       <div className="km-lock-clock" style={{ fontSize:'2rem' }}>
         <div className="km-lock-time">KLEIDUNGSMARKE.COM</div>
         <div className="km-lock-date">{dateStr}</div>
@@ -292,8 +302,9 @@ export default function AppChrome({ title = 'Shop' }) {
     });
   }, []);
 
-  const [muted, setMuted] = useState(() => getMutedState());
+  const [muted, setMuted] = useState(false);
   useEffect(() => {
+    setMuted(getMutedState());
     const unsubscribe = onMuteChange(setMuted);
     return unsubscribe;
   }, []);
@@ -540,15 +551,16 @@ export default function AppChrome({ title = 'Shop' }) {
       {/* Bottom leather bar */}
       <nav className="chrome-bottombar" aria-label="Hauptnavigation">
         <button type="button" onClick={goShop}  className={`chrome-tab box ${isActive('shop')}`}>Shop</button>
-        <button type="button" onClick={goAbout} className={`chrome-tab box ${isActive('about')}`}>Über Uns</button>
+        <button style={{display:'none'}} type="button" onClick={goAbout} className={`chrome-tab box ${isActive('about')}`}>Über Uns</button>
         <button type="button" onClick={goLegal} className={`chrome-tab box ${isActive('legal')}`}>Rechtliches</button>
         <button
           type="button"
           onClick={toggleSound}
-          className={`chrome-tab box sound ${muted ? 'is-muted' : ''}`}
+          className={`chrome-tab sound ${muted ? 'is-muted' : ''}`}
           aria-pressed={muted ? 'true' : 'false'}
         >
-          {muted ? '🔇 Ton aus' : '🔊 Ton an'}
+          <span className="chrome-sound-label">Ton</span>
+          <span className="chrome-sound-toggle" aria-hidden="true" />
         </button>
       </nav>
 

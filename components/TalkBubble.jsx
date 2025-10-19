@@ -2,7 +2,7 @@
 'use client';
 import { useEffect, useRef } from 'react';
 
-export default function TalkBubble({ text, x, y, visible }) {
+export default function TalkBubble({ text, x, y, visible, clamped }) {
   const ref = useRef(null);
   const isVisible = visible && !!text;
 
@@ -31,7 +31,7 @@ export default function TalkBubble({ text, x, y, visible }) {
         position: 'fixed',
         left: x,
         top: y,
-        transform: 'translate(-90%, 0%)',
+        transform: clamped ? 'translate(-50%, 0%)' : 'translate(-90%, 0%)',
         opacity: isVisible ? 1 : 0,
         visibility: isVisible ? 'visible' : 'hidden',
         pointerEvents: 'none',

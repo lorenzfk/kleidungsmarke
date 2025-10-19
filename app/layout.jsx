@@ -1,7 +1,12 @@
 import './globals.css';
 import AppChrome from '@/components/AppChrome';
 
-export const metadata = { title: 'kleidungsmarke' };
+export const metadata = {
+  title: 'kleidungsmarke',
+  icons: {
+    icon: '/favicon.png',
+  },
+};
 
 export default function RootLayout({ children }) {
   return (

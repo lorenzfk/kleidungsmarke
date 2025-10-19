@@ -7,10 +7,11 @@ import { getEngine } from '@/lib/three-catalog/engine';
 import { readIdleText } from '@/components/threeCatalog/text';
 import { playSound } from '@/lib/sound';
 
-export default function useTalkBubble({ selectedId, section }) {
-  const [bubble, setBubble] = useState({ text: '', x: 0, y: 0, visible: false });
+export default function useTalkBubble({ selectedId, section, copy = {} }) {
+  const [bubble, setBubble] = useState({ text: '', x: 0, y: 0, visible: false, clamped: false, hiddenByScroll: false });
   const selectedRef = useRef(selectedId);
   const prevVisibleRef = useRef(false);
+  const { greeting = '' } = copy;
 
   useEffect(() => {
     selectedRef.current = selectedId;
@@ -22,7 +23,11 @@ export default function useTalkBubble({ selectedId, section }) {
       if (selectedRef.current) return; // ignore incoming messages while a product is selected
       const eng = getEngine();
       if (eng) eng.playTalkOnce();
-      setBubble((prev) => ({ ...prev, text, visible: !!text }));
+      setBubble((prev) => ({
+        ...prev,
+        text,
+        visible: !prev.hiddenByScroll && !!text,
+      }));
     };
     const clear = () => setBubble((prev) => ({ ...prev, visible: false, text: '' }));
 
@@ -57,10 +62,14 @@ export default function useTalkBubble({ selectedId, section }) {
         const el = eng.renderer.domElement;
         const w = el?.clientWidth || window.innerWidth || 1;
         const h = el?.clientHeight || window.innerHeight || 1;
-        const x = (v.x * 0.5 + 0.5) * w;
-        const y = (-v.y * 0.5 + 0.5) * h - 8;
+        let x = (v.x * 0.5 + 0.5) * w;
+        const cappedY = Math.max(100, (-v.y * 0.5 + 0.5) * h - 8);
+        let clamped = false;
+        const edgeGuard = Math.min(w * 0.4, 220);
+        if (x < edgeGuard) { x = w * 0.5; clamped = true; }
+        else if (x > w - edgeGuard) { x = w * 0.5; clamped = true; }
         const ok = v.z > -1 && v.z < 1;
-        if (ok) setBubble((prev) => ({ ...prev, x, y }));
+        if (ok) setBubble((prev) => ({ ...prev, x, y: cappedY, clamped }));
       }
       raf = requestAnimationFrame(tick);
     };
@@ -71,9 +80,9 @@ export default function useTalkBubble({ selectedId, section }) {
   // Idle chatter when nothing selected
   useEffect(() => {
     if (selectedId || section) return;
-    const idle = readIdleText();
+    const idle = greeting || readIdleText();
     if (idle) window.kmSaySet?.(idle);
-  }, [selectedId, section]);
+  }, [selectedId, section, greeting]);
 
   // Hide bubble whenever a product is selected
   useEffect(() => {
@@ -86,6 +95,27 @@ export default function useTalkBubble({ selectedId, section }) {
     if (bubble.visible && !prevVisibleRef.current) playSound('bubble');
     prevVisibleRef.current = bubble.visible;
   }, [bubble.visible]);
+
+  useEffect(() => {
+    const onScrolled = (e) => {
+      const scrolled = !!e.detail?.scrolled;
+      setBubble((prev) => {
+        const shouldBeVisible = !scrolled && !!prev.text;
+        if (prev.hiddenByScroll === scrolled && prev.visible === shouldBeVisible) return prev;
+        return { ...prev, hiddenByScroll: scrolled, visible: shouldBeVisible };
+      });
+    };
+    window.addEventListener('km_bubble_scrolled', onScrolled);
+    const current = typeof window !== 'undefined' ? window.__KM_BUBBLE_SCROLLED__ : undefined;
+    if (typeof current === 'boolean') {
+      setBubble((prev) => {
+        const shouldBeVisible = !current && !!prev.text;
+        if (prev.hiddenByScroll === current && prev.visible === shouldBeVisible) return prev;
+        return { ...prev, hiddenByScroll: current, visible: shouldBeVisible };
+      });
+    }
+    return () => window.removeEventListener('km_bubble_scrolled', onScrolled);
+  }, []);
 
   return bubble;
 }

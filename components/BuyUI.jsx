@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState, useRef } from 'react';
 import ProductDetailClient from '@/components/ProductDetailClient';
 import CollectionClient from '@/components/CollectionClient';
 
+let themeJsonAvailable = null;
+
 /**
  * BuyUI renders the leather bar + wood panel and embeds either:
  *  - the full PDP (ProductDetailClient) for a product, OR
@@ -18,7 +20,7 @@ export default function BuyUI({
   onPrev,
   onNext,
   onBuy,
-  specialCollection,     // { title, description, descriptionHtml?, items, hasAny } | null
+  specialCollection,     // { title, items, hasAny } | null
 }) {
   const isSpecialSelected = !!(selected && selected.__special);
 
@@ -187,33 +189,55 @@ export default function BuyUI({
         const base = adaptProduct(data, selected);
         if (!cancelled) setProduct(base);
 
-        // 2) Optional enrichment via theme JSON
-        try {
-          const r2 = await fetch(`/products/${handle}.json`, { cache: 'no-store' });
-          if (r2.ok) {
-            const d2 = await r2.json();
-            const enriched = adaptProduct(d2, selected);
-            const merged = {
-              ...base,
-              images: (() => {
-                const seen = new Set();
-                const out = [];
-                const add = (src, alt='') => { if (src && !seen.has(src)) { seen.add(src); out.push({ src, alt }); } };
-                add(base.posterUrl, '');
-                (base.images || []).forEach(i => add(i.src, i.alt));
-                (enriched.images || []).forEach(i => add(i.src, i.alt));
-                return out;
-              })(),
-            };
-            if (!cancelled) setProduct(merged);
+        const canTryThemeJson = (() => {
+          if (themeJsonAvailable === false) return false;
+          if (typeof window === 'undefined') return themeJsonAvailable !== false;
+          if (themeJsonAvailable === null) {
+            try {
+              const stored = sessionStorage.getItem('km_theme_json_available');
+              if (stored === '0') themeJsonAvailable = false;
+              else if (stored === '1') themeJsonAvailable = true;
+            } catch {}
           }
-        } catch {}
+          return themeJsonAvailable !== false;
+        })();
+
+        if (canTryThemeJson) {
+          try {
+            const r2 = await fetch(`/products/${handle}.json`, { cache: 'no-store' });
+            if (r2.ok) {
+              const d2 = await r2.json();
+              const enriched = adaptProduct(d2, selected);
+              const merged = {
+                ...base,
+                images: (() => {
+                  const seen = new Set();
+                  const out = [];
+                  const add = (src, alt='') => { if (src && !seen.has(src)) { seen.add(src); out.push({ src, alt }); } };
+                  add(base.posterUrl, '');
+                  (base.images || []).forEach(i => add(i.src, i.alt));
+                  (enriched.images || []).forEach(i => add(i.src, i.alt));
+                  return out;
+                })(),
+              };
+              if (!cancelled) setProduct(merged);
+              themeJsonAvailable = true;
+              try { sessionStorage.setItem('km_theme_json_available', '1'); } catch {}
+            } else if (r2.status === 404) {
+              themeJsonAvailable = false;
+              try { sessionStorage.setItem('km_theme_json_available', '0'); } catch {}
+            }
+          } catch {
+            themeJsonAvailable = false;
+            try { sessionStorage.setItem('km_theme_json_available', '0'); } catch {}
+          }
+        }
 
       } catch (e) {
         // 3) fallback to theme JSON directly
         try {
-          const r2 = await fetch(`/products/${handle}.json`, { cache: 'no-store' });
-          if (!r2.ok) throw new Error(`HTTP ${r2.status}`);
+          const r2 = themeJsonAvailable === false ? null : await fetch(`/products/${handle}.json`, { cache: 'no-store' });
+          if (!r2?.ok) throw new Error(`HTTP ${r2?.status}`);
           const d2 = await r2.json();
           const adapted = adaptProduct(d2, selected);
           if (!cancelled) setProduct(adapted);
@@ -256,14 +280,9 @@ export default function BuyUI({
     return () => wood.removeEventListener('scroll', onScroll);
   }, []);
 
-  const cleanSpecialDescription = useMemo(() => {
-    if (!specialCollection?.description) return '';
-    return specialCollection.description.replace(/\s+/g, ' ').trim();
-  }, [specialCollection?.description]);
-
   const titleText = hasSelection
     ? (isSpecialSelected
-        ? (cleanSpecialDescription || specialCollection?.title || 'Special')
+        ? (specialCollection?.description || specialCollection?.title || 'Special')
         : (selected?.name || selected?.title || ''))
     : '';
 
@@ -340,9 +359,7 @@ export default function BuyUI({
 
                   {!product && (
                     <div className="buyui-detail error">
-                      <button className="btn-aqua" onClick={handleOpenFullPage}>
-                        Zum Produkt
-                      </button>
+                      
                     </div>
                   )}
                 </>

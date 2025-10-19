@@ -6,9 +6,11 @@ import { useRouter } from 'next/navigation';
 
 import BuyUI from '@/components/BuyUI';
 import TalkBubble from '@/components/TalkBubble';
+import LegalOverlay from '@/components/LegalOverlay';
 import useSpecialCollection from '@/components/threeCatalog/useSpecialCollection';
 import useThreeEngineSetup from '@/components/threeCatalog/useThreeEngineSetup';
 import useEngineSelectionSync from '@/components/threeCatalog/useEngineSelectionSync';
+import useEngineOverlay from '@/components/threeCatalog/useEngineOverlay';
 import useTalkBubble from '@/components/threeCatalog/useTalkBubble';
 import useLoadingOverlay from '@/components/threeCatalog/useLoadingOverlay';
 import { readSectionText } from '@/components/threeCatalog/text';
@@ -43,7 +45,50 @@ export default function ThreeCatalog({ products }) {
 
   const containerRef = useRef(null);
   const contentRef = useRef(null);
-  const gridRef = useRef(null);
+  const overlayRef = useRef(null);
+
+  const defaultMainpage = { greeting: '', about: '', legalMessage: '', legalFulltext: '', backgroundUrl: '', envMapUrl: '' };
+  const [mainpage, setMainpage] = useState(() => {
+    if (typeof window === 'undefined') return defaultMainpage;
+    try {
+      const stored = sessionStorage.getItem('km_mainpage_cache');
+      return stored ? { ...defaultMainpage, ...JSON.parse(stored) } : defaultMainpage;
+    } catch {
+      return defaultMainpage;
+    }
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+    const cached = (() => {
+      if (typeof window === 'undefined') return null;
+      try {
+        const stored = sessionStorage.getItem('km_mainpage_cache');
+        return stored ? JSON.parse(stored) : null;
+      } catch { return null; }
+    })();
+    if (cached) setMainpage(prev => ({ ...prev, ...cached }));
+
+    (async () => {
+      try {
+        const res = await fetch('/api/mainpage', { cache: 'no-store' });
+        if (!res.ok) return;
+        const json = await res.json();
+        if (cancelled) return;
+        const next = {
+          greeting: (json?.greeting || '').trim(),
+          about: (json?.about || '').trim(),
+          legalMessage: (json?.legalMessage || '').trim(),
+          legalFulltext: (json?.legalFulltext || '').trim(),
+          backgroundUrl: (json?.backgroundUrl || '').trim(),
+          envMapUrl: (json?.envMapUrl || '').trim?.() || '',
+        };
+        setMainpage(prev => ({ ...prev, ...next }));
+        try { sessionStorage.setItem('km_mainpage_cache', JSON.stringify(next)); } catch {}
+      } catch {}
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const [selectedId, setSelectedId] = useState(null);
   const [section, setSection] = useState(null); // 'about' | 'legal' | null
@@ -92,9 +137,13 @@ export default function ThreeCatalog({ products }) {
   useEffect(() => {
     if (!section) return;
     setSelectedId(null);
-    const msg = readSectionText(section);
+    const msg = section === 'about'
+      ? (mainpage.about || readSectionText('about'))
+      : section === 'legal'
+        ? ''
+        : '';
     if (msg) window.kmSaySet?.(msg);
-  }, [section]);
+  }, [section, mainpage.about]);
 
   // Clear selection event from AppChrome
   useEffect(() => {
@@ -141,8 +190,22 @@ export default function ThreeCatalog({ products }) {
   }, [baseItems, specialCol]);
 
   /* ---------- Engine wiring ---------- */
-  useThreeEngineSetup({ containerRef, contentRef, gridRef, items: allItems });
-  useEngineSelectionSync({ selectedId, section, contentRef, gridRef });
+  useThreeEngineSetup({
+    containerRef,
+    contentRef,
+    items: allItems,
+    backgroundUrl: mainpage.backgroundUrl,
+  });
+  useEngineSelectionSync({ selectedId, section, contentRef, overlayRef });
+
+  const overlayData = useEngineOverlay();
+  const overlayHeight = Math.max(0, overlayData.contentHeightPx || 0);
+  const topOffsetPx = overlayData.topOffsetPx || 0;
+  const itemLookup = useMemo(() => {
+    const map = new Map();
+    for (const item of allItems) map.set(item.id, item);
+    return map;
+  }, [allItems]);
 
   /* ---------- URL sync ---------- */
   useInitialSelection(allItems, setSelectedId);
@@ -150,7 +213,10 @@ export default function ThreeCatalog({ products }) {
   useHistorySelectionSync(allItems, section, setSelectedId);
 
   /* ---------- Bubble + overlay ---------- */
-  const bubble = useTalkBubble({ selectedId, section });
+  const bubble = useTalkBubble({ selectedId, section, copy: { greeting: mainpage.greeting } });
+  useEffect(() => {
+    if (section === 'legal') window.kmSayClear?.();
+  }, [section]);
   const { overlayVisible, pct } = useLoadingOverlay();
 
   /* ---------- Derived selection ---------- */
@@ -176,7 +242,8 @@ export default function ThreeCatalog({ products }) {
       <div id="three-container" ref={containerRef} aria-hidden="true" />
 
       {/* Character bubble (persistent) */}
-      <TalkBubble text={bubble.text} x={bubble.x} y={bubble.y} visible={bubble.visible} />
+      <TalkBubble text={bubble.text} x={bubble.x} y={bubble.y} visible={bubble.visible} clamped={bubble.clamped} />
+      <LegalOverlay message={mainpage.legalMessage} visible={section === 'legal'} />
 
       {/* Foreground scroll layer */}
       <div className="content" id="content" ref={contentRef} aria-busy={overlayVisible}>
@@ -190,33 +257,49 @@ export default function ThreeCatalog({ products }) {
           specialCollection={specialCol.hasAny ? specialCol : null}
         />
 
-        <div className="grid" id="grid" ref={gridRef} aria-hidden={(!!selected || !!section) ? 'true' : 'false'}>
-          {allItems.map(p => (
-            <figure
-              key={p.id}
-              onClick={() => setSelectedId(p.id)}
-              title={p.name}
-              className={p.available ? '' : 'soldout'}
-              style={p.available ? undefined : { position: 'relative' }}
-            >
-              {!p.available && (
-                <span
-                  className="soldout-badge"
-                  style={{
-                    position: 'absolute', top: 8, left: 8, zIndex: 3,
-                    padding: '6px 10px', borderRadius: 999, color: '#fff', fontWeight: 900,
-                    fontSize: '0.8rem', letterSpacing: '.4px', textTransform: 'uppercase',
-                    pointerEvents: 'none',
-                    boxShadow: '0 6px 12px rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.2)'
-                  }}
-                >
-                  AUSVERKAUFT
-                </span>
-              )}
-              <img src={p.posterUrl || '/placeholder.png'} alt={p.name} />
-              <h3>{p.name}</h3>
-            </figure>
-          ))}
+        <div
+          className="overlay-grid"
+          id="grid"
+          ref={overlayRef}
+          style={{ height: `${overlayHeight}px`, marginTop: `${topOffsetPx}px` }}
+          aria-hidden={(!!selected || !!section) ? 'true' : 'false'}
+        >
+          {overlayData.rects.map((rect) => {
+            const item = itemLookup.get(rect.id);
+            if (!item) return null;
+            const localTop = rect.top - topOffsetPx;
+            const style = {
+              left: `${rect.left}px`,
+              top: `${localTop}px`,
+              width: `${rect.width}px`,
+              height: `${rect.height}px`,
+            };
+            const soldOut = !item.available;
+            const onActivate = () => {
+              if (!soldOut) setSelectedId(item.id);
+            };
+            return (
+              <div
+                key={item.id}
+                className={`overlay-cell${soldOut ? ' soldout' : ''}`}
+                style={style}
+                role="button"
+                tabIndex={soldOut ? -1 : 0}
+                aria-label={soldOut ? `${item.name} – ausverkauft` : `${item.name}`}
+                onClick={onActivate}
+                onKeyDown={(e) => {
+                  if (soldOut) return;
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    onActivate();
+                  }
+                }}
+              >
+                <span className="overlay-cell__label">{item.name}</span>
+                {soldOut && <span className="overlay-cell__badge">Ausverkauft</span>}
+              </div>
+            );
+          })}
         </div>
 
         <div style={{ height: '30vh' }} />

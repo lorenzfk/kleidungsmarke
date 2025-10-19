@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 
 import { getEngine } from '@/lib/three-catalog/engine';
 
-export default function useEngineSelectionSync({ selectedId, section, contentRef, gridRef }) {
+export default function useEngineSelectionSync({ selectedId, section, contentRef, overlayRef }) {
   useEffect(() => {
     const eng = getEngine();
     if (!eng) return;
@@ -13,16 +13,15 @@ export default function useEngineSelectionSync({ selectedId, section, contentRef
     eng.setSelectionPlaneVisible(!!selectedId);
 
     const contentEl = contentRef?.current;
-    const gridEl = gridRef?.current;
     const lock = !!selectedId || !!section;
-    if (contentEl && gridEl) {
-      if (lock) {
-        contentEl.classList.add('locked');
-        gridEl.classList.add('disabled');
-      } else {
-        contentEl.classList.remove('locked');
-        gridEl.classList.remove('disabled');
-      }
+    const overlayEl = overlayRef?.current;
+    if (contentEl) {
+      if (lock) contentEl.classList.add('locked');
+      else contentEl.classList.remove('locked');
+    }
+    if (overlayEl) {
+      if (lock) overlayEl.classList.add('overlay-grid--selected');
+      else overlayEl.classList.remove('overlay-grid--selected');
     }
 
     eng.setLockGridY(lock);
@@ -38,5 +37,5 @@ export default function useEngineSelectionSync({ selectedId, section, contentRef
     document.body.dataset.kmSelected = isSel ? '1' : '0';
     const buy = document.getElementById('buyui');
     if (buy) buy.setAttribute('data-active', isSel ? 'true' : 'false');
-  }, [selectedId, section, contentRef, gridRef]);
+  }, [selectedId, section, contentRef, overlayRef]);
 }
