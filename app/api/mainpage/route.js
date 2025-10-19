@@ -14,6 +14,7 @@ export async function GET() {
       about: '',
       legalMessage: '',
       legalFulltext: '',
+      horseClickMessage: '',
       backgroundUrl: null,
     }, { status: 200 });
   }

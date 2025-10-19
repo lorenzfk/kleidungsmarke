@@ -47,7 +47,7 @@ export default function ThreeCatalog({ products }) {
   const contentRef = useRef(null);
   const overlayRef = useRef(null);
 
-  const defaultMainpage = { greeting: '', about: '', legalMessage: '', legalFulltext: '', backgroundUrl: '', envMapUrl: '' };
+  const defaultMainpage = { greeting: '', about: '', legalMessage: '', legalFulltext: '', horseClickMessage: '', backgroundUrl: '', envMapUrl: '' };
   const [mainpage, setMainpage] = useState(() => {
     if (typeof window === 'undefined') return defaultMainpage;
     try {
@@ -80,6 +80,7 @@ export default function ThreeCatalog({ products }) {
           about: (json?.about || '').trim(),
           legalMessage: (json?.legalMessage || '').trim(),
           legalFulltext: (json?.legalFulltext || '').trim(),
+          horseClickMessage: (json?.horseClickMessage || '').trim(),
           backgroundUrl: (json?.backgroundUrl || '').trim(),
           envMapUrl: (json?.envMapUrl || '').trim?.() || '',
         };
@@ -213,7 +214,7 @@ export default function ThreeCatalog({ products }) {
   useHistorySelectionSync(allItems, section, setSelectedId);
 
   /* ---------- Bubble + overlay ---------- */
-  const bubble = useTalkBubble({ selectedId, section, copy: { greeting: mainpage.greeting } });
+  const bubble = useTalkBubble({ selectedId, section, copy: { greeting: mainpage.greeting, horseClickMessage: mainpage.horseClickMessage } });
   useEffect(() => {
     if (section === 'legal') window.kmSayClear?.();
   }, [section]);

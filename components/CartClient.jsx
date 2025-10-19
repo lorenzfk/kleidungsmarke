@@ -71,7 +71,7 @@ export default function CartClient() {
 
   return (
     <div className="cart-page">
-      <div className="container" style={{ maxWidth: 600, paddingTop: 80, paddingBottom: 80 }}>
+      <div className="container">
         
         <h1 style={{ display: 'none' }} className="cart-title">Warenkorb</h1>
 

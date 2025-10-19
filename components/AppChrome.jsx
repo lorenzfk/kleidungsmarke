@@ -299,6 +299,7 @@ export default function AppChrome({ title = 'Shop' }) {
       unlock: '/sounds/unlock.mp3',
       lock: '/sounds/lock.mp3',
       bubble: '/sounds/bubble.mp3',
+      talking: '/sounds/talking.mp3',
     });
   }, []);
 
@@ -395,7 +396,7 @@ export default function AppChrome({ title = 'Shop' }) {
   const onBackClick = isCollection ? (() => router.push('/')) : handleBack;
 
   /* ---------- Dynamic title ---------- */
-  const routeTitles = { '/cart': 'Warenkorb', '/games': 'Games' };
+  const routeTitles = { '/cart': 'Warenkorb', '/games': 'Games', '/legal': 'Rechtliches' };
   const sectionTitle = section === 'about' ? 'Über Uns' : section === 'legal' ? 'Rechtliches' : null;
 
   // Collection title via DOM

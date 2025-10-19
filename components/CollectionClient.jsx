@@ -9,6 +9,7 @@ export default function CollectionClient({
   description = '',
   descriptionHtml = '',
   items = [],
+  embedded = false,
 }) {
   const products = useMemo(
     () =>
@@ -25,7 +26,10 @@ export default function CollectionClient({
   );
 
   return (
-    <div className="collection-page">
+    <div
+      className="collection-page"
+      style={embedded ? undefined : { marginTop: '72px' }}
+    >
       <div className="collection-header">
         <h1 className="collection-title">{title}</h1>
         {(descriptionHtml || description) && (

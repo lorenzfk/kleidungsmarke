@@ -8,10 +8,10 @@ import { readIdleText } from '@/components/threeCatalog/text';
 import { playSound } from '@/lib/sound';
 
 export default function useTalkBubble({ selectedId, section, copy = {} }) {
-  const [bubble, setBubble] = useState({ text: '', x: 0, y: 0, visible: false, clamped: false, hiddenByScroll: false });
+  const [bubble, setBubble] = useState({ text: '', x: 0, y: 0, visible: false, clamped: false, hiddenByScroll: false, soundOverride: null });
   const selectedRef = useRef(selectedId);
   const prevVisibleRef = useRef(false);
-  const { greeting = '' } = copy;
+  const { greeting = '', horseClickMessage = '' } = copy;
 
   useEffect(() => {
     selectedRef.current = selectedId;
@@ -19,24 +19,28 @@ export default function useTalkBubble({ selectedId, section, copy = {} }) {
 
   // Event bridge (km_say_set / km_say_clear)
   useEffect(() => {
-    const set = (text) => {
+    const set = (text, options = {}) => {
       if (selectedRef.current) return; // ignore incoming messages while a product is selected
       const eng = getEngine();
-      if (eng) eng.playTalkOnce();
+      const shouldTalk = options.playTalk !== false;
+      if (eng && shouldTalk) eng.playTalkOnce();
+      const sound = options.sound;
       setBubble((prev) => ({
         ...prev,
         text,
         visible: !prev.hiddenByScroll && !!text,
+        soundOverride: sound || null,
       }));
+      if (sound) playSound(sound);
     };
-    const clear = () => setBubble((prev) => ({ ...prev, visible: false, text: '' }));
+    const clear = () => setBubble((prev) => ({ ...prev, visible: false, text: '', soundOverride: null }));
 
-    const onSaySet = (e) => set(e.detail?.text || '');
+    const onSaySet = (e) => set(e.detail?.text || '', e.detail?.options || {});
     const onSayClear = () => clear();
 
     window.addEventListener('km_say_set', onSaySet);
     window.addEventListener('km_say_clear', onSayClear);
-    window.kmSaySet = (text) => window.dispatchEvent(new CustomEvent('km_say_set', { detail: { text } }));
+    window.kmSaySet = (text, options) => window.dispatchEvent(new CustomEvent('km_say_set', { detail: { text, options } }));
     window.kmSayClear = () => window.dispatchEvent(new Event('km_say_clear'));
 
     return () => {
@@ -81,18 +85,28 @@ export default function useTalkBubble({ selectedId, section, copy = {} }) {
   useEffect(() => {
     if (selectedId || section) return;
     const idle = greeting || readIdleText();
-    if (idle) window.kmSaySet?.(idle);
+    if (idle) window.kmSaySet?.(idle, { playTalk: false });
   }, [selectedId, section, greeting]);
+
+  useEffect(() => {
+    if (!horseClickMessage) return;
+    const onClick = () => {
+      if (selectedRef.current) return;
+      window.kmSaySet?.(horseClickMessage, { playTalk: true, sound: 'talking' });
+    };
+    window.addEventListener('km_character_click', onClick);
+    return () => window.removeEventListener('km_character_click', onClick);
+  }, [horseClickMessage]);
 
   // Hide bubble whenever a product is selected
   useEffect(() => {
     if (!selectedId) return;
     window.kmSayClear?.();
-    setBubble((prev) => ({ ...prev, text: '', visible: false }));
+    setBubble((prev) => ({ ...prev, text: '', visible: false, soundOverride: null }));
   }, [selectedId]);
 
   useEffect(() => {
-    if (bubble.visible && !prevVisibleRef.current) playSound('bubble');
+    if (bubble.visible && !prevVisibleRef.current && !bubble.soundOverride) playSound('bubble');
     prevVisibleRef.current = bubble.visible;
   }, [bubble.visible]);
 

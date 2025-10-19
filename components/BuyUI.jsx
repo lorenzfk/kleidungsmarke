@@ -280,6 +280,15 @@ export default function BuyUI({
     return () => wood.removeEventListener('scroll', onScroll);
   }, []);
 
+  useEffect(() => {
+    if (hasSelection) return;
+    const wood = woodRef.current;
+    if (wood) wood.scrollTop = 0;
+    const buyui = buyuiRef.current;
+    if (buyui) buyui.scrollTop = 0;
+    setIsExpanded(false);
+  }, [hasSelection]);
+
   const titleText = hasSelection
     ? (isSpecialSelected
         ? (specialCollection?.description || specialCollection?.title || 'Special')
@@ -330,6 +339,7 @@ export default function BuyUI({
                 <div className="buyui-detail">
                   {specialCollection?.hasAny ? (
                     <CollectionClient
+                      embedded
                       title={specialCollection.title}
                       description={specialCollection.description}
                       descriptionHtml={specialCollection.descriptionHtml}
