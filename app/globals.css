@@ -159,8 +159,8 @@ canvas.webgl { display:block; width:100%; height:100%; }
   background: linear-gradient(to bottom, rgba(255,255,255,.9), rgba(255,255,255,0));
   pointer-events: none;
 }
-.btn-aqua:hover { filter: brightness(1.08); transform: translateY(-1px); }
-.btn-aqua:active { filter: brightness(0.97); transform: translateY(1px);
+.btn-aqua:hover { filter: brightness(1.06); transform: translateY(-0.5px); }
+.btn-aqua:active { filter: brightness(0.97); transform: translateY(0);
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,.35),
     inset 0 -6px 12px rgba(0,0,0,.22),
@@ -444,7 +444,16 @@ iframe{
   box-sizing: border-box;
   color: var(--text-color);
 }
-.legal-title { color: var(--text-color); margin: 0 0 18px; font-weight: 800; font-size: clamp(1.8rem, 4vw, 2.4rem); text-transform: uppercase; letter-spacing: 1px; }
+.legal-title {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
 .legal-text {
   background: rgba(255,255,255,.06);
   border-radius: 14px;
@@ -547,19 +556,20 @@ width: 100%; }
   pointer-events: none;
   margin-top: -100px;
 }
-.btn-row{
+.btn-row {
   display: flex;
   flex-direction: column;
-  gap: 3rem;
+  gap: 1.6rem;
   justify-content: center;
-  
-  margin-top: 40px;
+  align-items: stretch;
+  margin-top: 32px;
   width: 100%;
 }
-.btn-row .btn-aqua{
-  flex:1;
-  box-shadow: -1px -1px 1px RGBA(0,0,0,1.0),1px 1px 1px RGBA(255,255,255,0.5), inset -1px -1px px RGBA(0,0,0,1.0), inset 1px 1px 1px RGBA(0,0,0,0.5);
-  bbackground: linear-gradient(to bottom, RGBA(255,255,255,0.2), RGBA(255,255,255,0.0))!important;
+.btn-row .btn-aqua {
+  flex: none;
+  width: 100%;
+  max-width: 360px;
+  margin: 0 auto;
 }
 
 /* If your debug HUD overlaps, you can nudge it: */

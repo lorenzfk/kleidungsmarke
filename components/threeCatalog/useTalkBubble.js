@@ -11,6 +11,7 @@ export default function useTalkBubble({ selectedId, section, copy = {} }) {
   const [bubble, setBubble] = useState({ text: '', x: 0, y: 0, visible: false, clamped: false, hiddenByScroll: false, soundOverride: null });
   const selectedRef = useRef(selectedId);
   const prevVisibleRef = useRef(false);
+  const prevTextRef = useRef('');
   const { greeting = '', horseClickMessage = '' } = copy;
 
   useEffect(() => {
@@ -106,9 +107,14 @@ export default function useTalkBubble({ selectedId, section, copy = {} }) {
   }, [selectedId]);
 
   useEffect(() => {
-    if (bubble.visible && !prevVisibleRef.current && !bubble.soundOverride) playSound('bubble');
+    const textChanged = bubble.text && bubble.text !== prevTextRef.current;
+    if (bubble.visible && !bubble.soundOverride && textChanged) {
+      playSound('bubble');
+      prevTextRef.current = bubble.text;
+    }
+    if (!bubble.text) prevTextRef.current = '';
     prevVisibleRef.current = bubble.visible;
-  }, [bubble.visible]);
+  }, [bubble.visible, bubble.text, bubble.soundOverride]);
 
   useEffect(() => {
     const onScrolled = (e) => {
