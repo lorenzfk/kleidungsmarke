@@ -38,7 +38,7 @@ function LockOverlay({ productTitle }) {
   const knobRef = useRef(null);
   const drag = useRef({ active: false, startX: 0, offset: 0 });
 
-  const [message, setMessage] = useState('Ey wir haben miesen Rabatt!');
+  const [message, setMessage] = useState('...');
   const [backgroundUrl, setBackgroundUrl] = useState(() => {
     if (typeof window === 'undefined') return '';
     try {
@@ -68,8 +68,8 @@ function LockOverlay({ productTitle }) {
       try {
         const meta = document.querySelector('meta[name="km:welcome"]')?.content?.trim();
         const win  = (typeof window !== 'undefined' && window.__KM_WELCOME__) || '';
-        return meta || win || 'Ey wir haben miesen Rabatt!';
-      } catch { return 'Ey wir haben miesen Rabatt!'; }
+        return meta || win || '...!';
+      } catch { return '...'; }
     })();
 
     try {
@@ -392,8 +392,8 @@ export default function AppChrome({ title = 'Shop' }) {
   // New rules:
   // - On ANY collection route (/collections or /collections/[handle]) -> label "shop", click routes to "/"
   // - Everywhere else -> label "zurück", click handleBack (on home this may show lockscreen)
-  const backText = isCollection ? 'shop' : 'zurück';
-  const onBackClick = isCollection ? (() => router.push('/')) : handleBack;
+  const backText = (isCollection || pathname === '/cart') ? 'shop' : 'zurück';
+  const onBackClick = (isCollection || pathname === '/cart') ? (() => router.push('/')) : handleBack;
 
   /* ---------- Dynamic title ---------- */
   const routeTitles = { '/cart': 'Warenkorb', '/games': 'Games', '/legal': 'Rechtliches' };
