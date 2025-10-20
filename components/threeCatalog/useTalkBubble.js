@@ -73,6 +73,7 @@ export default function useTalkBubble({ selectedId, section, copy = {} }) {
         const edgeGuard = Math.min(w * 0.4, 220);
         if (x < edgeGuard) { x = w * 0.5; clamped = true; }
         else if (x > w - edgeGuard) { x = w * 0.5; clamped = true; }
+        x = Math.max(10, Math.min(w - 10, x));
         const ok = v.z > -1 && v.z < 1;
         if (ok) setBubble((prev) => ({ ...prev, x, y: cappedY, clamped }));
       }

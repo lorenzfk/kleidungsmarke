@@ -365,7 +365,7 @@ export default function BuyUI({
 
                   {product && (
                     <div className="buyui-detail">
-                      <ProductDetailClient product={product} related={product.related || []} />
+                    <ProductDetailClient product={product} related={product.related || []} embedded />
                     </div>
                   )}
 

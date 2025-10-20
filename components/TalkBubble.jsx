@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react';
 
 export default function TalkBubble({ text, x, y, visible, clamped }) {
   const ref = useRef(null);
+  const anchorRef = useRef(clamped ? 0.5 : 0.9);
   const isVisible = visible && !!text;
 
   useEffect(() => {
@@ -22,6 +23,24 @@ export default function TalkBubble({ text, x, y, visible, clamped }) {
     }
   }, [isVisible, text]);
 
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const margin = 10;
+    const width = el.offsetWidth || 0;
+    const viewport = typeof window !== 'undefined' ? window.innerWidth || document.body.clientWidth || width : width;
+    let anchor = clamped ? 0.5 : 0.9;
+    if (width > 0) {
+      const desiredLeft = x - width * anchor;
+      if (desiredLeft < margin) {
+        anchor = Math.max(0, Math.min(1, (x - margin) / width));
+      } else if (desiredLeft + width > viewport - margin) {
+        anchor = Math.max(0, Math.min(1, (x - (viewport - margin - width)) / width));
+      }
+    }
+    anchorRef.current = anchor;
+  }, [x, y, clamped, text, isVisible]);
+
   return (
     <div
       ref={ref}
@@ -31,7 +50,7 @@ export default function TalkBubble({ text, x, y, visible, clamped }) {
         position: 'fixed',
         left: x,
         top: y,
-        transform: clamped ? 'translate(-50%, 0%)' : 'translate(-90%, 0%)',
+        transform: `translate(${-anchorRef.current * 100}%, 0%)`,
         opacity: isVisible ? 1 : 0,
         visibility: isVisible ? 'visible' : 'hidden',
         pointerEvents: 'none',

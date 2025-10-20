@@ -303,6 +303,15 @@ export default function AppChrome({ title = 'Shop' }) {
     });
   }, []);
 
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const body = document.body;
+    if (!body) return;
+    if (pathname === '/') body.classList.add('lock-scroll');
+    else body.classList.remove('lock-scroll');
+    return () => body.classList.remove('lock-scroll');
+  }, [pathname]);
+
   const [muted, setMuted] = useState(false);
   useEffect(() => {
     setMuted(getMutedState());

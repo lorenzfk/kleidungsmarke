@@ -167,7 +167,7 @@ function HeroCarousel({ images, title }) {
 }
 
 /* ---------- PDP ---------- */
-export default function ProductDetailClient({ product, related = [] }) {
+export default function ProductDetailClient({ product, related = [], embedded = false }) {
   // Harden against undefined product
   const p = product || {};
 
@@ -212,7 +212,7 @@ export default function ProductDetailClient({ product, related = [] }) {
   if (!p || (!p.id && !p.handle)) return null;
 
   return (
-    <div className="product-page">
+    <div className="product-page" style={embedded ? undefined : { marginTop: '72px' }}>
       <div className="container">
         <a style={{display:'none'}} className="btn-aqua btn-close back-link" href="/">← Katalog</a>
 

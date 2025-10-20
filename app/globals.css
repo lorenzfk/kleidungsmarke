@@ -7,11 +7,12 @@ body {
   background-image: url('../public/wood1.png');
   background-size: auto 200px;
   font-family: sans-serif; 
-  overflow: auto;        
+  overflow-y: auto;  
+  overflow-x: hidden;      
   scrollbar-width: none;       /* Firefox */
   -ms-overflow-style: none;    /* IE/Edge */
 }
-body.lock-scroll { overflow: hidden; }
+body.lock-scroll { overflow: hidden; border: 20px solid blue}
 body::-webkit-scrollbar { display: none; }
 
 /* --- 3D layer --- */
@@ -455,12 +456,13 @@ iframe{
   border: 0;
 }
 .legal-text {
-  background: rgba(255,255,255,.06);
+  user-select: text;
+  margin-top: -72px;
+  background: rgba(255,255,255,.00);
   border-radius: 14px;
   padding: 24px 26px;
   line-height: 1.65;
   font-size: 1.02rem;
-  box-shadow: 0 16px 32px rgba(0,0,0,0.35);
   overflow-wrap: anywhere;
   word-break: break-word;
 }
@@ -498,6 +500,7 @@ width: 100%; }
   gap: 12px;
   align-items: center;
   -webkit-filter: drop-shadow(0 -1px 0px rgba(0,0,0,.5)) drop-shadow(0 1px 0px rgba(255,255,255,.5));
+  filter: drop-shadow(0 -1px 0px rgba(0,0,0,.5)) drop-shadow(0 1px 0px rgba(255,255,255,.5));
 }
 .option-label { color:var(--text-color); font-weight:700; margin-bottom: 6px; font-size: 1.2rem;}
 .option-values { 
@@ -884,7 +887,7 @@ width: 100%; }
   pointer-events: auto;
   width: 100%;
   padding: 0;
-  padding-top: 50vh;
+  padding-top: calc( var(--vh) * 40);
   height: 100vh;
   
   overflow-x: hidden;
@@ -901,7 +904,7 @@ width: 100%; }
   background-color: brown;
   height: 72px;
   position:sticky;
-  top: -50vh;
+  top: calc( var(--vh) * -40);
   z-index: 20;
   padding: 6px 10px;
   background: url('/ui/leather-middle.png') repeat-x left / auto 100%;
@@ -1002,9 +1005,9 @@ width: 100%; }
   margin-bottom: -72px;
   background-size: auto 300px;
 }
-.product-page, .cart-page, .collection-page {
-  -webkit-filter: drop-shadow(0 -1px 0px rgba(0,0,0,.5)) drop-shadow(0 1px 0px rgba(255,255,255,.5));
-  filter: drop-shadow(0 -1px 0px rgba(0,0,0,.5)) drop-shadow(0 1px 0px rgba(255,255,255,.5));
+.product-page, .cart-page, .collection-page, .related-section, .legal-page{
+  -webkit-filter: drop-shadow(0 .1rem 0px rgba(0,0,0,.5)) drop-shadow(0 .1rem 0px rgba(255,255,255,.5));
+  filter: drop-shadow(0 .1rem 0px rgba(0,0,0,.5)) drop-shadow(0 .1rem 0px rgba(255,255,255,.5));
 }
 .qty button{
   color:white;
