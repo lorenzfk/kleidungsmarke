@@ -93,12 +93,16 @@ function HeroCarousel({ images, title }) {
   }, [list.length, next, prev]);
 
   useEffect(() => {
-    const handle = () => setResizeTick((t) => t + 1);
-    window.addEventListener('resize', handle);
-    window.addEventListener('orientationchange', handle);
+    const onResize = () => setResizeTick((t) => t + 1);
+    const onOrient = () => {
+      setIdx(0);               // reset to first slide to avoid misalignment after rotation
+      setResizeTick((t) => t + 1);
+    };
+    window.addEventListener('resize', onResize);
+    window.addEventListener('orientationchange', onOrient);
     return () => {
-      window.removeEventListener('resize', handle);
-      window.removeEventListener('orientationchange', handle);
+      window.removeEventListener('resize', onResize);
+      window.removeEventListener('orientationchange', onOrient);
     };
   }, []);
 
@@ -144,7 +148,7 @@ function HeroCarousel({ images, title }) {
 
   const content = (
     <div className="product-poster">
-      <div className="product-poster__square">
+      <div className="product-poster__square" key={`sq-${resizeTick}`}>
         <div
           ref={wrap}
           className="product-poster__carousel"
