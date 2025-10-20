@@ -2,11 +2,11 @@
 import ThreeCatalog from '@/components/ThreeCatalog';
 import { getLandingData } from '@/lib/catalog';
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://kleidungsmarke.de';
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://kleidungsmarke.com';
 
 export const metadata = {
   title: 'Shop - Kleidungsmarke.com',
-  description: 'Kleidungsmarke – Geile Klamotten einfach.',
+  description: 'Kleidungsmarke. Die Marke für Kleidungs.',
   alternates: { canonical: SITE_URL },
   openGraph: { url: SITE_URL },
 };

@@ -1,5 +1,6 @@
 import './globals.css';
 import AppChrome from '@/components/AppChrome';
+import ViewportHeightFix from '@/components/ViewportHeightFix';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://kleidungsmarke.de';
 
@@ -30,6 +31,7 @@ export default function RootLayout({ children }) {
   return (
     <html lang="de">
       <body>
+        <ViewportHeightFix />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify({
