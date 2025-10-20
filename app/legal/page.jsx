@@ -2,6 +2,11 @@ import { getMainpageData } from '@/lib/mainpage';
 
 export const dynamic = 'force-dynamic';
 
+export const metadata = {
+  title: 'Rechtliches und Impressum.',
+  description: 'Kleidungsmarke – Rechtliches und Impressum.',
+};
+
 export default async function LegalPage() {
   const { legalFulltext } = await getMainpageData();
   const hasContent = !!legalFulltext;

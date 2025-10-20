@@ -2,6 +2,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { useMemo } from 'react';
 
 export default function CollectionClient({
@@ -48,10 +49,13 @@ export default function CollectionClient({
         {products.map((p) => (
           <li key={p.id} className={`collection-card ${p.available ? '' : 'is-soldout'}`}>
             {/* same structure as before */}
-            <img
+            <Image
               src={p.posterUrl || '/placeholder.png'}
               alt={p.name}
+              width={84}
+              height={84}
               className="collection-card__img"
+              sizes="84px"
             />
             <div className="collection-card__meta">
               <div className="collection-card__title">{p.name}</div>

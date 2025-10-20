@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useRef, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import AddToCartClient from '@/components/AddToCartClient';
 import VariantPicker from '@/components/VariantPicker';
 
@@ -147,7 +148,14 @@ function HeroCarousel({ images, title }) {
           <div className="product-poster__inner" style={innerStyle} key={resizeTick}>
             {list.map((img, i) => (
               <div key={i} className="product-poster__slide" style={slideStyle}>
-                <img className="product-poster__img" src={img.src} alt={img.alt || title} />
+                <Image
+                  src={img.src}
+                  alt={img.alt || title}
+                  fill
+                  priority={i === 0}
+                  sizes="(max-width: 980px) 92vw, 520px"
+                  className="product-poster__img"
+                />
               </div>
             ))}
           </div>
@@ -260,17 +268,21 @@ export default function ProductDetailClient({ product, related = [], embedded = 
             <div className="related-grid">
               {related.map((r) => (
                 <Link href={`/products/${r.handle}`} key={r.id} className="related-card">
-                  <img
-                    src={r.posterUrl || '/placeholder.png'}
-                    alt={r.title}
-                    className="related-img"
-                  />
+                  <div style={{ position: 'relative', width: '100%', height: '28vh' }}>
+                    <Image
+                      src={r.posterUrl || '/placeholder.png'}
+                      alt={r.title}
+                      fill
+                      sizes="(max-width: 900px) 60vw, 300px"
+                      className="related-img"
+                    />
+                  </div>
                   <div className="related-name">{r.title}</div>
                 </Link>
               ))}
-            </div>
-          </section>
-        )}
+          </div>
+        </section>
+      )}
       </div>
     </div>
   );

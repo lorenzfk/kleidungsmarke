@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import Image from 'next/image';
 
 const SHOP_DOMAIN = process.env.NEXT_PUBLIC_SHOPIFY_DOMAIN;
 
@@ -92,7 +93,14 @@ export default function CartClient() {
             <ul className="cart-list">
               {items.map(({ id, qty, v }) => (
                 <li key={id} className="cart-item">
-                  <img className="cart-img" src={v.product.image || '/placeholder.png'} alt={v.product.title} />
+                  <Image
+                    className="cart-img"
+                    src={v.product.image || '/placeholder.png'}
+                    alt={v.product.title}
+                    width={120}
+                    height={120}
+                    sizes="(max-width: 540px) 100vw, 120px"
+                  />
                   <div className="cart-main">
                     <div className="cart-lineTitle">{v.product.title}</div>
                     {(() => {

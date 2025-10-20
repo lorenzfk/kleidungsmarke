@@ -1,6 +1,15 @@
 // app/collections/page.jsx
 import Link from 'next/link';
+import Image from 'next/image';
 import { shopifyFetch } from '@/lib/shopify';
+
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://kleidungsmarke.de';
+
+export const metadata = {
+  title: 'Kollektionen',
+  description: 'Alle Kollektionen von Kleidungsmarke – entdecke neue Drops und Klassiker.',
+  alternates: { canonical: `${(SITE_URL || '').replace(/\/$/, '')}/collections` },
+};
 
 export const dynamic = 'force-dynamic';
 
@@ -21,8 +30,18 @@ export default async function CollectionsIndexPage() {
   const data = await shopifyFetch(QUERY);
   const cols = (data?.collections?.nodes || []).filter(Boolean);
 
+  const breadcrumbLd = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Startseite', item: SITE_URL.replace(/\/$/, '') },
+      { '@type': 'ListItem', position: 2, name: 'Kollektionen', item: `${SITE_URL.replace(/\/$/, '')}/collections` },
+    ],
+  };
+
   return (
     <div className="collection-page">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }} />
       <div className="collection-header">
         <h1 className="collection-title">Kollektionen</h1>
       </div>
@@ -39,10 +58,13 @@ export default async function CollectionsIndexPage() {
 
             return (
               <li key={c.id} className="collection-card">
-                <img
+                <Image
                   src={c.image?.url || '/placeholder.png'}
                   alt={c.image?.altText || title}
+                  width={84}
+                  height={84}
                   className="collection-card__img"
+                  sizes="84px"
                 />
                 <div className="collection-card__meta">
                   <div className="collection-card__title">{title}</div>

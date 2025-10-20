@@ -1249,7 +1249,7 @@ width: 100%; display: flex; flex-direction: column; gap:12px; align-items: cente
   box-shadow: inset 0 1px 0 rgba(255,255,255,.6), 0 1px 0 rgba(0,0,0,.15);
 }
 .km-lock-notif-body { color: #111; font-weight: 100; }
-.km-lock-notif-title { font-weight: 800; margin-bottom: 2px; }
+.km-lock-notif-title { font-weight: 400; margin-bottom: 2px; }
 .km-lock-notif-text { font-weight: 600; }
 
 /* Slider */
@@ -1366,6 +1366,8 @@ width: 100%; display: flex; flex-direction: column; gap:12px; align-items: cente
 .collection-card__price { color: #fff; font-weight: 300; }
 .collection-card__badge {
   width: max-content;
+  position: absolute;
+  bottom:8px;right:8px;
   display: flex; margin-top: 6px; padding: 3px 8px;
   border-radius: 999px; font-size: 12px; font-weight: 900;
   color: #fff; background: linear-gradient(to bottom, #b6b6b6, #000000); box-shadow: 0 2px 8px rgba(0,0,0,.4);outline:2px solid white;
