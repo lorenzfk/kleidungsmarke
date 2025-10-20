@@ -42,7 +42,7 @@ canvas.webgl { display:block; width:100%; height:100%; }
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
-.content.locked { overflow: hidden; pointer-events: none; } /* disable scroll when a product is selected */
+.content.locked { pointer-events: none; } /* keep height/scroll metrics unchanged while disabling interactions */
 .content::-webkit-scrollbar { display: none; }
 
 /* --- Product grid (always 3 cols on small, 4 on wide) --- */
@@ -662,11 +662,10 @@ width: 100%; display: flex; flex-direction: column; gap:12px; align-items: cente
   display: block;
   text-decoration: none;
   border-radius: 12px;
-  background: rgba(255,255,255,.06);
+  background: rgba(255,255,255,0);
   overflow: hidden;
   transition: transform .12s ease, filter .12s ease;
 }
-.related-card:hover { transform: translateY(-1px); filter: brightness(1.03); }
 .related-img {
   display: block;
   width: 100%;
@@ -1041,7 +1040,7 @@ width: 100%; display: flex; flex-direction: column; gap:12px; align-items: cente
   margin-bottom: -72px;
   background-size: auto 300px;
 }
-.product-page, .cart-page, .collection-page, .related-section, .legal-page{
+.product-page, .cart-page, .collection-page, .related-section, .legal-page, .related-card{
   -webkit-filter: drop-shadow(0 .1rem 0px rgba(0,0,0,.5)) drop-shadow(0 .1rem 0px rgba(255,255,255,.5));
   filter: drop-shadow(0 .1rem 0px rgba(0,0,0,.5)) drop-shadow(0 .1rem 0px rgba(255,255,255,.5));
 }

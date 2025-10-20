@@ -5,7 +5,7 @@ import { getLandingData } from '@/lib/catalog';
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://kleidungsmarke.de';
 
 export const metadata = {
-  title: 'Kleidungsmarke.com Shop',
+  title: 'Shop - Kleidungsmarke.com',
   description: 'Kleidungsmarke – Geile Klamotten einfach.',
   alternates: { canonical: SITE_URL },
   openGraph: { url: SITE_URL },

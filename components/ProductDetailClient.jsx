@@ -3,6 +3,7 @@
 import { useMemo, useState, useRef, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { createPortal } from 'react-dom';
 import AddToCartClient from '@/components/AddToCartClient';
 import VariantPicker from '@/components/VariantPicker';
 
@@ -135,6 +136,12 @@ function HeroCarousel({ images, title }) {
     cursor: 'pointer',
   };
 
+  const [lightbox, setLightbox] = useState(null); // { src, alt }
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+  const openLightbox = (img) => setLightbox(img);
+  const closeLightbox = () => setLightbox(null);
+
   const content = (
     <div className="product-poster">
       <div className="product-poster__square">
@@ -147,7 +154,7 @@ function HeroCarousel({ images, title }) {
         >
           <div className="product-poster__inner" style={innerStyle} key={resizeTick}>
             {list.map((img, i) => (
-              <div key={i} className="product-poster__slide" style={slideStyle}>
+              <div key={i} className="product-poster__slide" style={slideStyle} onClick={() => openLightbox(img)}>
                 <Image
                   src={img.src}
                   alt={img.alt || title}
@@ -171,7 +178,34 @@ function HeroCarousel({ images, title }) {
     </div>
   );
 
-  return content;
+  return <>
+    {content}
+    {mounted && lightbox && createPortal(
+      <div
+        role="dialog"
+        aria-label="Bildansicht"
+        onClick={closeLightbox}
+        style={{
+          position: 'fixed', inset: 0, zIndex: 9999,
+          background: 'rgba(0,0,0,.92)',
+          display: 'grid', placeItems: 'center',
+          cursor: 'zoom-out',
+        }}
+      >
+        <div style={{ position: 'relative', width: '92vw', height: '92vh' }}>
+          <Image
+            src={lightbox.src}
+            alt={lightbox.alt || title}
+            fill
+            sizes="100vw"
+            style={{ objectFit: 'contain' }}
+            priority
+          />
+        </div>
+      </div>,
+      document.body
+    )}
+  </>;
 }
 
 /* ---------- PDP ---------- */

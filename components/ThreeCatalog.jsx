@@ -226,17 +226,8 @@ export default function ThreeCatalog({ products }) {
   const selected = selectedId ? allItems.find(i => i.id === selectedId) : null;
   const selectedIdx = selected ? allItems.findIndex(i => i.id === selected.id) : -1;
 
-  useEffect(() => {
-    if (selected || section) return;
-    const el = contentRef.current;
-    if (el) el.scrollTop = 0;
-    const eng = getEngine();
-    if (eng) {
-      eng.forceRelayoutNow?.();
-      eng.relayoutEntries?.();
-      eng.queueRelayout?.();
-    }
-  }, [selected, section]);
+  // Note: we purposely do not reset or restore scroll when (de)selecting.
+  // We keep the overlay container's height stable to avoid scroll jumps.
 
   const buyNow = () => {
     if (!selected || !selected.available) return;
@@ -280,7 +271,7 @@ export default function ThreeCatalog({ products }) {
           className={"overlay-grid" + (overlayLocked ? ' overlay-grid--selected' : '')}
           id="grid"
           ref={overlayRef}
-          style={{ height: overlayLocked ? 0 : overlayHeight, marginTop: overlayLocked ? 0 : topOffsetPx }}
+          style={{ height: overlayHeight, marginTop: topOffsetPx }}
           aria-hidden={overlayLocked ? 'true' : 'false'}
         >
           {overlayData.rects.map((rect) => {

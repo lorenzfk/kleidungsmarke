@@ -15,6 +15,7 @@ export default function useEngineSelectionSync({ selectedId, section, contentRef
     const contentEl = contentRef?.current;
     const lock = !!selectedId || !!section;
     const overlayEl = overlayRef?.current;
+    // Do not touch scroll here; we keep container height stable to preserve scroll.
     if (contentEl) {
       if (lock) contentEl.classList.add('locked');
       else contentEl.classList.remove('locked');
