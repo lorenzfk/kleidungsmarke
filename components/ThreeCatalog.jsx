@@ -292,7 +292,7 @@ export default function ThreeCatalog({ products }) {
             };
             const soldOut = !item.available;
             const onActivate = () => {
-              if (!soldOut) setSelectedId(item.id);
+              setSelectedId(item.id);
             };
             return (
               <div
@@ -300,11 +300,10 @@ export default function ThreeCatalog({ products }) {
                 className={`overlay-cell${soldOut ? ' soldout' : ''}`}
                 style={style}
                 role="button"
-                tabIndex={soldOut ? -1 : 0}
+                tabIndex={0}
                 aria-label={soldOut ? `${item.name} – ausverkauft` : `${item.name}`}
                 onClick={onActivate}
                 onKeyDown={(e) => {
-                  if (soldOut) return;
                   if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault();
                     onActivate();

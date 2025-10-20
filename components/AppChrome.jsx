@@ -10,7 +10,11 @@ import { playSound, toggleMute, isMuted as getMutedState, onMuteChange, configur
 function readCartCount() {
   try {
     const cart = JSON.parse(localStorage.getItem('km_cart') || '[]');
-    return cart.reduce((n, l) => n + (l.qty || 1), 0);
+    if (!Array.isArray(cart)) return 0;
+    return cart.reduce((n, l) => {
+      const q = Number(l?.qty ?? 0);
+      return n + (Number.isFinite(q) && q > 0 ? q : 0);
+    }, 0);
   } catch { return 0; }
 }
 function getLockDebug() {

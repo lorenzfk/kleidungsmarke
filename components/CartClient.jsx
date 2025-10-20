@@ -49,6 +49,16 @@ export default function CartClient() {
     [lines, variants]
   );
 
+  // Reconcile local cart with resolved variants: drop lines that no longer exist
+  useEffect(() => {
+    if (!lines?.length) return;
+    const filtered = lines.filter(l => !!variants[l.id] && Number(l.qty || 0) > 0);
+    if (filtered.length !== lines.length) {
+      setLines(filtered);
+      writeCart(filtered);
+    }
+  }, [variants]);
+
   const total = useMemo(
     () => items.reduce((sum, it) => sum + (Number(it.v.price?.amount || 0) * (it.qty || 1)), 0),
     [items]
@@ -85,25 +95,30 @@ export default function CartClient() {
                   <img className="cart-img" src={v.product.image || '/placeholder.png'} alt={v.product.title} />
                   <div className="cart-main">
                     <div className="cart-lineTitle">{v.product.title}</div>
-                    <div className="cart-variant">{v.title}</div>
+                    {(() => {
+                      const t = (v.title || '').trim();
+                      const isDefault = /^default\s*title$/i.test(t);
+                      return (!isDefault && t) ? (
+                        <div className="cart-variant">{t}</div>
+                      ) : null;
+                    })()}
 
                     <div className="cart-controls">
                       <div className="qty">
-                        <button onClick={() => setQty(id, qty - 1)}>-</button>
+                        <button onClick={() => setQty(id, qty - 1)} aria-label="Menge reduzieren">-</button>
                         <input
                           type="number"
                           min={1}
                           value={qty}
                           onChange={e => setQty(id, Number(e.target.value || 1))}
                         />
-                        <button onClick={() => setQty(id, qty + 1)}>+</button>
+                        <button onClick={() => setQty(id, qty + 1)} aria-label="Menge erhöhen">+</button>
+                        <button className="btn-remove" onClick={() => remove(id)} aria-label="Entfernen">Entfernen</button>
                       </div>
                       <div className="line-price">
                         {toMoney({ amount: (Number(v.price.amount) * qty), currencyCode: v.price.currencyCode })}
                       </div>
                     </div>
-
-                    <button className="remove" onClick={() => remove(id)}>Entfernen</button>
                   </div>
                 </li>
               ))}
