@@ -24,6 +24,7 @@ import {
   SPECIAL_MODEL_URL,
   SPECIAL_TITLE_FALLBACK,
 } from '@/lib/three-catalog/constants';
+import { getEngine } from '@/lib/three-catalog/engine';
 
 function LoadingOverlay({ visible, pct }) {
   if (!visible) return null;
@@ -202,6 +203,7 @@ export default function ThreeCatalog({ products }) {
   const overlayData = useEngineOverlay();
   const overlayHeight = Math.max(0, overlayData.contentHeightPx || 0);
   const topOffsetPx = overlayData.topOffsetPx || 0;
+  const overlayLocked = !!selectedId || !!section;
   const itemLookup = useMemo(() => {
     const map = new Map();
     for (const item of allItems) map.set(item.id, item);
@@ -223,6 +225,18 @@ export default function ThreeCatalog({ products }) {
   /* ---------- Derived selection ---------- */
   const selected = selectedId ? allItems.find(i => i.id === selectedId) : null;
   const selectedIdx = selected ? allItems.findIndex(i => i.id === selected.id) : -1;
+
+  useEffect(() => {
+    if (selected || section) return;
+    const el = contentRef.current;
+    if (el) el.scrollTop = 0;
+    const eng = getEngine();
+    if (eng) {
+      eng.forceRelayoutNow?.();
+      eng.relayoutEntries?.();
+      eng.queueRelayout?.();
+    }
+  }, [selected, section]);
 
   const buyNow = () => {
     if (!selected || !selected.available) return;
@@ -259,11 +273,12 @@ export default function ThreeCatalog({ products }) {
         />
 
         <div
-          className="overlay-grid"
+          key={`ov-${overlayData.version}-${overlayLocked ? '1' : '0'}`}
+          className={"overlay-grid" + (overlayLocked ? ' overlay-grid--selected' : '')}
           id="grid"
           ref={overlayRef}
-          style={{ height: `${overlayHeight}px`, marginTop: `${topOffsetPx}px` }}
-          aria-hidden={(!!selected || !!section) ? 'true' : 'false'}
+          style={{ height: overlayLocked ? 0 : overlayHeight, marginTop: overlayLocked ? 0 : topOffsetPx }}
+          aria-hidden={overlayLocked ? 'true' : 'false'}
         >
           {overlayData.rects.map((rect) => {
             const item = itemLookup.get(rect.id);
@@ -297,7 +312,7 @@ export default function ThreeCatalog({ products }) {
                 }}
               >
                 <span className="overlay-cell__label">{item.name}</span>
-                {soldOut && <span className="overlay-cell__badge">Ausverkauft</span>}
+                {soldOut && !overlayLocked && <span className="overlay-cell__badge">Ausverkauft</span>}
               </div>
             );
           })}

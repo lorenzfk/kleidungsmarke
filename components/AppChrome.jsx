@@ -33,6 +33,7 @@ function LockOverlay({ productTitle }) {
   const router = useRouter();
 
   const [visible, setVisible] = useState(false);
+  const [unlocking, setUnlocking] = useState(false);
   const [now, setNow] = useState(() => new Date());
   const trackRef = useRef(null);
   const knobRef = useRef(null);
@@ -54,6 +55,7 @@ function LockOverlay({ productTitle }) {
   const [msgPost, setMsgPost] = useState('');
 
   const showLockscreen = useCallback(() => {
+    setUnlocking(false);
     setVisible(prev => {
       if (!prev) playSound('lock');
       return true;
@@ -138,12 +140,25 @@ function LockOverlay({ productTitle }) {
     return () => { clearInterval(id); document.body.style.overflow = prev; };
   }, [visible]);
 
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const body = document.body;
+    if (!body) return;
+    if (pathname === '/') body.classList.add('lock-scroll');
+    else body.classList.remove('lock-scroll');
+    return () => body.classList.remove('lock-scroll');
+  }, [pathname]);
+
   const unlock = useCallback(() => {
     playSound('unlock');
-    setVisible(false);
-    if (!LOCK_DEBUG) {
-      try { sessionStorage.setItem('km_lock_seen', '1'); } catch {}
-    }
+    setUnlocking(true);
+    setTimeout(() => {
+      setVisible(false);
+      setUnlocking(false);
+      if (!LOCK_DEBUG) {
+        try { sessionStorage.setItem('km_lock_seen', '1'); } catch {}
+      }
+    }, 350);
   }, []);
 
   // Allow external trigger to re-show the lock overlay
@@ -224,14 +239,14 @@ function LockOverlay({ productTitle }) {
     };
   }, [visible, unlock]);
 
-  if (!visible) return null;
+  if (!visible && !unlocking) return null;
 
   const dateStr = new Intl.DateTimeFormat(navigator.language || 'de-DE', {
     weekday: 'long', day: 'numeric', month: 'long'
   }).format(now);
 
   return (
-    <div className="km-lock" role="dialog" aria-modal="true" aria-label="Willkommen">
+    <div className={`km-lock${unlocking ? ' is-unlocking' : ''}`} role="dialog" aria-modal="true" aria-label="Willkommen">
       <div
         className="km-lock-bg"
         style={backgroundUrl ? { '--km-lock-img': `url(${backgroundUrl})` } : undefined}
@@ -302,15 +317,6 @@ export default function AppChrome({ title = 'Shop' }) {
       talking: '/sounds/talking.mp3',
     });
   }, []);
-
-  useEffect(() => {
-    if (typeof document === 'undefined') return;
-    const body = document.body;
-    if (!body) return;
-    if (pathname === '/') body.classList.add('lock-scroll');
-    else body.classList.remove('lock-scroll');
-    return () => body.classList.remove('lock-scroll');
-  }, [pathname]);
 
   const [muted, setMuted] = useState(false);
   useEffect(() => {

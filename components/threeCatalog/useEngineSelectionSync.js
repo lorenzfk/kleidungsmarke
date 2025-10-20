@@ -37,5 +37,15 @@ export default function useEngineSelectionSync({ selectedId, section, contentRef
     document.body.dataset.kmSelected = isSel ? '1' : '0';
     const buy = document.getElementById('buyui');
     if (buy) buy.setAttribute('data-active', isSel ? 'true' : 'false');
+
+    // Force a relayout so overlay height/rects are immediately correct
+    try {
+      eng.forceRelayoutNow?.();
+      eng.queueRelayout?.();
+      // A couple of delayed kicks to catch async image/font/layout updates
+      requestAnimationFrame(() => eng.forceRelayoutNow?.());
+      setTimeout(() => eng.forceRelayoutNow?.(), 60);
+      setTimeout(() => eng.forceRelayoutNow?.(), 180);
+    } catch {}
   }, [selectedId, section, contentRef, overlayRef]);
 }
