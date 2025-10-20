@@ -19,6 +19,19 @@ body::-webkit-scrollbar { display: none; }
 #three-container { position: fixed; inset: 0; z-index: 1; pointer-events: none; }
 canvas.webgl { display:block; width:100%; height:100%; }
 
+/* --- Selection anchor (invisible) --- */
+#km-select-target {
+  position: fixed;
+  top: 72px;
+  left: 50%;
+  height: 40vh;
+  width: 40vh; /* 1:1 aspect */
+  transform: translateX(-50%);
+  pointer-events: none; /* unclickable */
+  z-index: 2;
+  opacity: 0; /* invisible */
+}
+
 /* --- Foreground scroll layer --- */
 .content {
   position: absolute; /* was: fixed */
@@ -417,7 +430,7 @@ iframe{
 .qty .btn-remove:hover { filter: brightness(1.05); }
 .qty .btn-remove:active { filter: brightness(.95); }
 
-button:hover{
+button:hover:not(.km-lock-knob){
   filter: brightness(105%);
   transform: scale(1.02);
 }
@@ -1145,11 +1158,10 @@ width: 100%; display: flex; flex-direction: column; gap:12px; align-items: cente
   display: grid;
   place-items: center;
   overflow: hidden;
-  transition: opacity .35s ease;
+  transition: transform .35s ease;
 }
-.km-lock.is-unlocking {
-  opacity: 0;
-}
+.km-lock.is-unlocking { transform: scale(3);  }
+.km-lock.is-locking   { transform: scale(3);  }
 .km-lock * {
 }
 
@@ -1163,19 +1175,12 @@ width: 100%; display: flex; flex-direction: column; gap:12px; align-items: cente
   background-size: cover;
   background-repeat: no-repeat;
   filter: saturate(1.1) contrast(1.05);
-  transform-origin: center center;
-  transition: transform .35s ease, opacity .35s ease;
+  transition: opacity .35s ease;
 }
-.km-lock.is-unlocking .km-lock-bg {
-  transform: scaleY(1.5);
-  opacity: 0;
-}
-.km-lock.is-unlocking .km-lock-clock,
-.km-lock.is-unlocking .km-lock-notif,
-.km-lock.is-unlocking .km-lock-slider {
-  opacity: 0;
-  transition: opacity .25s ease;
-}
+.km-lock.is-unlocking .km-lock-bg { opacity: 0; }
+.km-lock.is-locking   .km-lock-bg { opacity: 0; }
+.km-lock.is-unlocking .km-lock-notif { opacity: 0; }
+.km-lock.is-locking   .km-lock-notif { opacity: 0; }
 .km-lock-bg::after {
   content: "";
   position: absolute;
@@ -1204,7 +1209,7 @@ width: 100%; display: flex; flex-direction: column; gap:12px; align-items: cente
   user-select: none;
   box-shadow: inset 0 -1px 3px white;
   z-index: 1;
-  transition: opacity .35s ease, transform .35s ease;
+  /* no opacity animation on clock when unlocking */
 }
 .km-lock-time {
   font-size: clamp(40px, 12vw, 90px);
@@ -1234,7 +1239,7 @@ width: 100%; display: flex; flex-direction: column; gap:12px; align-items: cente
   border-radius: 14px;
   background: rgba(255,255,255,.95);
   box-shadow: 0 10px 28px rgba(0,0,0,.35);
-  transition: opacity .35s ease, transform .35s ease;
+  /* no opacity animation on notif when unlocking */
 }
 .km-lock-notif-left { display: grid; place-items: center; }
 .km-lock-imsg-dot {
@@ -1260,7 +1265,7 @@ width: 100%; display: flex; flex-direction: column; gap:12px; align-items: cente
   box-shadow: inset 0 -2px 6px rgba(255,255,255,.65), inset 0 6px 22px rgba(0,0,0,.55);
   overflow: hidden;
   z-index: 2;
-  transition: opacity .35s ease, transform .35s ease;
+  /* no opacity animation on slider when unlocking */
 }
 
 @keyframes km-shimmer {

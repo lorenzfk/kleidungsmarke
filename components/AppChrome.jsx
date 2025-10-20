@@ -38,6 +38,7 @@ function LockOverlay({ productTitle }) {
 
   const [visible, setVisible] = useState(false);
   const [unlocking, setUnlocking] = useState(false);
+  const [locking, setLocking] = useState(false);
   const [now, setNow] = useState(() => new Date());
   const trackRef = useRef(null);
   const knobRef = useRef(null);
@@ -60,9 +61,14 @@ function LockOverlay({ productTitle }) {
 
   const showLockscreen = useCallback(() => {
     setUnlocking(false);
+    setLocking(true);
     setVisible(prev => {
       if (!prev) playSound('lock');
       return true;
+    });
+    // trigger reverse animation (scale from 1.5 -> 1 and bg opacity 0 -> 1)
+    requestAnimationFrame(() => {
+      setTimeout(() => setLocking(false), 10);
     });
   }, []);
 
@@ -199,6 +205,7 @@ function LockOverlay({ productTitle }) {
     }
     function onMove(e) {
       if (!drag.current.active) return;
+      e.preventDefault?.();
       const clientX = (e.touches?.[0]?.clientX) ?? e.clientX;
       const dx = clientX - drag.current.startX + drag.current.offset;
       const max = track.clientWidth - knob.clientWidth;
@@ -221,19 +228,26 @@ function LockOverlay({ productTitle }) {
       setTimeout(() => { knob.style.transition = ''; }, 260);
     }
 
-    const opts = { passive: true };
-    knob.addEventListener('pointerdown', onDown, opts);
-    window.addEventListener('pointermove', onMove, opts);
-    window.addEventListener('pointerup', onUp, opts);
-    knob.addEventListener('touchstart', onDown, opts);
-    window.addEventListener('touchmove', onMove, opts);
-    window.addEventListener('touchend', onUp, opts);
+    const passive = { passive: true };
+    const active = { passive: false };
+    knob.addEventListener('pointerdown', onDown, passive);
+    // Listen on the knob to work with setPointerCapture
+    knob.addEventListener('pointermove', onMove, active);
+    knob.addEventListener('pointerup', onUp, passive);
+    // Also listen on window as a fallback (non-captured cases)
+    window.addEventListener('pointermove', onMove, active);
+    window.addEventListener('pointerup', onUp, passive);
+    knob.addEventListener('touchstart', onDown, passive);
+    window.addEventListener('touchmove', onMove, active);
+    window.addEventListener('touchend', onUp, passive);
     const onKey = (e) => { if (e.key === 'Enter' || e.key === ' ') unlock(); };
     knob.addEventListener('keydown', onKey);
 
     setX(0);
     return () => {
       knob.removeEventListener('pointerdown', onDown);
+      knob.removeEventListener('pointermove', onMove);
+      knob.removeEventListener('pointerup', onUp);
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
       knob.removeEventListener('touchstart', onDown);
@@ -243,14 +257,14 @@ function LockOverlay({ productTitle }) {
     };
   }, [visible, unlock]);
 
-  if (!visible && !unlocking) return null;
+  if (!visible && !unlocking && !locking) return null;
 
   const dateStr = new Intl.DateTimeFormat(navigator.language || 'de-DE', {
     weekday: 'long', day: 'numeric', month: 'long'
   }).format(now);
 
   return (
-    <div className={`km-lock${unlocking ? ' is-unlocking' : ''}`} role="dialog" aria-modal="true" aria-label="Willkommen">
+    <div className={`km-lock${unlocking ? ' is-unlocking' : ''}${locking ? ' is-locking' : ''}`} role="dialog" aria-modal="true" aria-label="Willkommen">
       <div
         className="km-lock-bg"
         style={backgroundUrl ? { '--km-lock-img': `url(${backgroundUrl})` } : undefined}

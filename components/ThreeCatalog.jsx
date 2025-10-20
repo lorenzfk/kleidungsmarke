@@ -256,6 +256,9 @@ export default function ThreeCatalog({ products }) {
       {/* 3D layer */}
       <div id="three-container" ref={containerRef} aria-hidden="true" />
 
+      {/* Invisible selection anchor for 3D model placement */}
+      <div id="km-select-target" aria-hidden="true" />
+
       {/* Character bubble (persistent) */}
       <TalkBubble text={bubble.text} x={bubble.x} y={bubble.y} visible={bubble.visible} clamped={bubble.clamped} />
       <LegalOverlay message={mainpage.legalMessage} visible={section === 'legal'} />
