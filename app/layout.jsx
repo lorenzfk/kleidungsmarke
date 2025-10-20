@@ -1,6 +1,7 @@
 import './globals.css';
 import AppChrome from '@/components/AppChrome';
 import ViewportHeightFix from '@/components/ViewportHeightFix';
+import ZoomBlocker from '@/components/ZoomBlocker';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://kleidungsmarke.de';
 
@@ -27,11 +28,20 @@ export const metadata = {
   alternates: { canonical: SITE_URL },
 };
 
+// Disable zoom site-wide and set viewport
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: 'no',
+};
+
 export default function RootLayout({ children }) {
   return (
     <html lang="de">
       <body>
         <ViewportHeightFix />
+        <ZoomBlocker />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify({

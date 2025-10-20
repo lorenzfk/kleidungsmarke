@@ -295,6 +295,96 @@ export default function BuyUI({
         : (selected?.name || selected?.title || ''))
     : '';
 
+  // --- Auto-fit title on one line between buttons ---
+  const titleRef = useRef(null);
+  useEffect(() => {
+    const el = titleRef.current;
+    if (!el) return;
+    // ensure single-line behavior for measurement
+    el.style.whiteSpace = 'nowrap';
+    el.style.overflow = 'visible';
+
+    const minPx = 10; // minimum readable size
+
+    // Hidden measurer to get accurate text width
+    const measurer = document.createElement('span');
+    const base = getComputedStyle(el);
+    measurer.style.position = 'absolute';
+    measurer.style.visibility = 'hidden';
+    measurer.style.whiteSpace = 'nowrap';
+    measurer.style.left = '-9999px';
+    measurer.style.top = '-9999px';
+    measurer.style.fontFamily = base.fontFamily;
+    measurer.style.fontWeight = base.fontWeight;
+    measurer.style.fontStyle = base.fontStyle;
+    measurer.style.letterSpacing = base.letterSpacing;
+    measurer.style.textTransform = base.textTransform;
+    measurer.style.lineHeight = '1.05';
+    measurer.textContent = el.textContent || '';
+    document.body.appendChild(measurer);
+
+    const fit = () => {
+      const parent = el.parentElement;
+      const parentW = parent?.clientWidth || 0;
+      const csParent = parent ? getComputedStyle(parent) : null;
+      const gap = csParent ? parseFloat(csParent.gap || csParent.columnGap || '0') : 0;
+      const leftBtn = parent?.querySelector('.buyui-btn.arrow-left');
+      const rightBtn = parent?.querySelector('.buyui-btn.arrow-right');
+      const leftW = leftBtn ? leftBtn.getBoundingClientRect().width : 0;
+      const rightW = rightBtn ? rightBtn.getBoundingClientRect().width : 0;
+      // Reserve at least 14px spacing to each button (28px total)
+      const spacingBuffer = 28;
+      const available = Math.max(0, parentW - leftW - rightW - gap * 2 - spacingBuffer);
+      if (available <= 0) return;
+      el.style.maxWidth = `${available}px`;
+
+      // Max font size derived from bar height (prevents touching edges)
+      const bar = parent?.closest('.buyui-bar');
+      const barH = bar?.getBoundingClientRect().height || 72;
+      const padY = 12; // approx combined vertical padding
+      const maxPx = Math.max(14, Math.min(40, (barH - padY) * 0.48));
+
+      // Binary search font-size so that content fits into available width
+      let lo = minPx, hi = maxPx, best = minPx;
+      for (let i = 0; i < 18; i++) {
+        const mid = (lo + hi) / 2;
+        measurer.style.fontSize = mid + 'px';
+        // eslint-disable-next-line no-unused-expressions
+        measurer.offsetWidth;
+        const need = Math.ceil(measurer.offsetWidth);
+        if (need <= available) { best = mid; lo = mid; } else { hi = mid; }
+      }
+      el.style.fontSize = Math.round(best * 100) / 100 + 'px';
+      el.style.lineHeight = '1.05';
+    };
+
+    // initial and on resize/orientation/content changes
+    fit();
+    // schedule a couple of follow-up fits to catch late layout changes
+    requestAnimationFrame(fit);
+    setTimeout(fit, 0);
+    setTimeout(fit, 60);
+    try { document.fonts?.ready?.then?.(() => fit()); } catch {}
+    const onResize = () => fit();
+    window.addEventListener('resize', onResize);
+    window.addEventListener('orientationchange', onResize);
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(onResize) : null;
+    try {
+      ro?.observe?.(el);
+      const parent = el.parentElement; if (parent) ro?.observe?.(parent);
+      const lb = parent?.querySelector?.('.buyui-btn.arrow-left');
+      const rb = parent?.querySelector?.('.buyui-btn.arrow-right');
+      lb && ro?.observe?.(lb);
+      rb && ro?.observe?.(rb);
+    } catch {}
+    return () => {
+      window.removeEventListener('resize', onResize);
+      window.removeEventListener('orientationchange', onResize);
+      try { ro?.disconnect?.(); } catch {}
+      try { document.body.removeChild(measurer); } catch {}
+    };
+  }, [titleText, selectedIdx, totalItems, selected]);
+
   return (
     <div
       id="buyui"
@@ -317,7 +407,7 @@ export default function BuyUI({
             </button>
 
             {/* keep id=buyTitle so AppChrome can read it */}
-            <h2 id="buyTitle" className="buyui-title">{titleText}</h2>
+            <h2 id="buyTitle" className="buyui-title" ref={titleRef}>{titleText}</h2>
 
             <button
               className={`buyui-btn arrow-right${atEnd ? ' disabled' : ''}`}
