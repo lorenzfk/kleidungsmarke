@@ -343,7 +343,7 @@ export default function BuyUI({
       el.style.maxWidth = `${available}px`;
 
       // Use a fixed maximum to avoid feedback loops with bar height changes
-      const maxPx = 32; // hard cap for short titles
+      const maxPx = 22; // hard cap for short titles
 
       // Binary search font-size so that content fits into available width
       let lo = minPx, hi = maxPx, best = minPx;

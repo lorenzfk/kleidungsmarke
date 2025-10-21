@@ -546,7 +546,7 @@ export default function AppChrome({ title = 'Shop' }) {
       el.style.width = `${available}px`;
 
       // fixed cap to avoid feedback loops
-      const maxPx = 32;
+      const maxPx = 22;
       let lo = minPx, hi = maxPx, best = minPx;
       for (let i = 0; i < 18; i++) {
         const mid = (lo + hi) / 2;
