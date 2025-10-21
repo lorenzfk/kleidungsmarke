@@ -499,6 +499,108 @@ export default function AppChrome({ title = 'Shop' }) {
         ? (productTitle || 'Produkt')
         : (routeTitles[pathname] || title || 'Shop');
 
+  // Auto-fit the chrome title between back/cart buttons
+  const chromeTitleRef = useRef(null);
+  useEffect(() => {
+    const el = chromeTitleRef.current;
+    if (!el) return;
+    el.style.whiteSpace = 'nowrap';
+    el.style.overflow = 'visible';
+
+    const minPx = 8;
+
+    // hidden measurer using current computed font styles
+    const measurer = document.createElement('span');
+    const base = getComputedStyle(el);
+    Object.assign(measurer.style, {
+      position: 'absolute', visibility: 'hidden', whiteSpace: 'nowrap', left: '-9999px', top: '-9999px',
+      fontFamily: base.fontFamily, fontWeight: base.fontWeight, fontStyle: base.fontStyle,
+      letterSpacing: base.letterSpacing, textTransform: base.textTransform, lineHeight: '1.05',
+    });
+    measurer.textContent = el.textContent || '';
+    document.body.appendChild(measurer);
+
+    const fit = () => {
+      const parent = el.parentElement; if (!parent) return;
+      const leftBtn = parent.querySelector('.chrome-btn.arrow');
+      const rightBtn = parent.querySelector('.chrome-cart');
+      const bufferL = 12, bufferR = 12; // symmetric margins by default
+      let available = 0;
+      if (leftBtn && rightBtn) {
+        const l = leftBtn.getBoundingClientRect();
+        const r = rightBtn.getBoundingClientRect();
+        available = Math.max(0, r.left - l.right - (bufferL + bufferR));
+      } else {
+        const rectW = parent.getBoundingClientRect().width || parent.clientWidth || 0;
+        const cs = getComputedStyle(parent);
+        const padL = parseFloat(cs.paddingLeft || '0');
+        const padR = parseFloat(cs.paddingRight || '0');
+        const contentW = Math.max(0, rectW - padL - padR);
+        const lw = leftBtn ? leftBtn.getBoundingClientRect().width : 0;
+        const rw = rightBtn ? rightBtn.getBoundingClientRect().width : 0;
+        available = Math.max(0, contentW - lw - rw - (bufferL + bufferR));
+      }
+      if (available <= 0) return;
+      el.style.maxWidth = `${available}px`;
+      // Fix the title container to the full available gap so it stays perfectly centered
+      el.style.width = `${available}px`;
+
+      // fixed cap to avoid feedback loops
+      const maxPx = 32;
+      let lo = minPx, hi = maxPx, best = minPx;
+      for (let i = 0; i < 18; i++) {
+        const mid = (lo + hi) / 2;
+        try {
+          const cur = getComputedStyle(el);
+          measurer.style.fontFamily = cur.fontFamily;
+          measurer.style.fontWeight = cur.fontWeight;
+          measurer.style.fontStyle = cur.fontStyle;
+          measurer.style.letterSpacing = cur.letterSpacing;
+          measurer.style.textTransform = cur.textTransform;
+          measurer.textContent = el.textContent || '';
+        } catch {}
+        measurer.style.fontSize = mid + 'px';
+        // eslint-disable-next-line no-unused-expressions
+        measurer.offsetWidth;
+        const need = Math.ceil(measurer.offsetWidth);
+        if (need <= available) { best = mid; lo = mid; } else { hi = mid; }
+      }
+      el.style.fontSize = Math.round(best * 100) / 100 + 'px';
+      el.style.lineHeight = '1.05';
+      // Center the fixed-width title box in the center grid track
+      el.style.marginLeft = 'auto';
+      el.style.marginRight = 'auto';
+    };
+
+    // schedule fits now and after layout/fonts settle
+    const schedule = () => { fit(); requestAnimationFrame(fit); setTimeout(fit, 0); setTimeout(fit, 60); try { document.fonts?.ready?.then?.(() => fit()); } catch {} };
+    schedule();
+
+    const onResize = () => schedule();
+    window.addEventListener('resize', onResize);
+    window.addEventListener('orientationchange', onResize);
+    try { window.visualViewport?.addEventListener('resize', onResize); } catch {}
+    // Fallback: if layout settles on first user scroll, re-fit once
+    const onScrollOnce = () => { schedule(); window.removeEventListener('scroll', onScrollOnce, true); };
+    window.addEventListener('scroll', onScrollOnce, true);
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(onResize) : null;
+    try {
+      const parent = el.parentElement; if (parent) ro?.observe?.(parent);
+      const lb = parent?.querySelector?.('.chrome-btn.arrow');
+      const rb = parent?.querySelector?.('.chrome-cart');
+      lb && ro?.observe?.(lb);
+      rb && ro?.observe?.(rb);
+    } catch {}
+    return () => {
+      window.removeEventListener('resize', onResize);
+      window.removeEventListener('orientationchange', onResize);
+      try { window.visualViewport?.removeEventListener('resize', onResize); } catch {}
+      window.removeEventListener('scroll', onScrollOnce, true);
+      try { ro?.disconnect?.(); } catch {}
+      try { document.body.removeChild(measurer); } catch {}
+    };
+  }, [displayTitle, pathname]);
+
   /* ---------- Cart count ---------- */
   const [cartCount, setCartCount] = useState(0);
   useEffect(() => {
@@ -569,7 +671,7 @@ export default function AppChrome({ title = 'Shop' }) {
             <span>{backText}</span>
           </button>
 
-          <div className="chrome-title" aria-live="polite">{displayTitle}</div>
+          <div className="chrome-title" ref={chromeTitleRef} aria-live="polite">{displayTitle}</div>
 
           <Link href="/cart" className="chrome-btn box chrome-cart" aria-label={cartAria}>
             <span>Warenkorb</span>

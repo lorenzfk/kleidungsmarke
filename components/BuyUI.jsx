@@ -325,29 +325,40 @@ export default function BuyUI({
 
     const fit = () => {
       const parent = el.parentElement;
-      const parentW = parent?.clientWidth || 0;
-      const csParent = parent ? getComputedStyle(parent) : null;
-      const gap = csParent ? parseFloat(csParent.gap || csParent.columnGap || '0') : 0;
-      const leftBtn = parent?.querySelector('.buyui-btn.arrow-left');
-      const rightBtn = parent?.querySelector('.buyui-btn.arrow-right');
+      if (!parent) return;
+      // Compute available as parent content width minus fixed button widths and gaps
+      const leftBtn = parent.querySelector('.buyui-btn.arrow-left');
+      const rightBtn = parent.querySelector('.buyui-btn.arrow-right');
+      const parentW = parent.getBoundingClientRect()?.width || parent.clientWidth || 0;
+      const csParent = getComputedStyle(parent);
+      const padL = parseFloat(csParent.paddingLeft || '0');
+      const padR = parseFloat(csParent.paddingRight || '0');
+      const gap = parseFloat(csParent.gap || csParent.columnGap || '0');
+      const contentW = Math.max(0, parentW - padL - padR);
       const leftW = leftBtn ? leftBtn.getBoundingClientRect().width : 0;
       const rightW = rightBtn ? rightBtn.getBoundingClientRect().width : 0;
-      // Reserve at least 14px spacing to each button (28px total)
-      const spacingBuffer = 28;
-      const available = Math.max(0, parentW - leftW - rightW - gap * 2 - spacingBuffer);
+      const spacingBuffer = 20; // 10px each side
+      const available = Math.max(0, contentW - leftW - rightW - gap * 2 - spacingBuffer);
       if (available <= 0) return;
       el.style.maxWidth = `${available}px`;
 
-      // Max font size derived from bar height (prevents touching edges)
-      const bar = parent?.closest('.buyui-bar');
-      const barH = bar?.getBoundingClientRect().height || 72;
-      const padY = 12; // approx combined vertical padding
-      const maxPx = Math.max(14, Math.min(40, (barH - padY) * 0.48));
+      // Use a fixed maximum to avoid feedback loops with bar height changes
+      const maxPx = 32; // hard cap for short titles
 
       // Binary search font-size so that content fits into available width
       let lo = minPx, hi = maxPx, best = minPx;
       for (let i = 0; i < 18; i++) {
         const mid = (lo + hi) / 2;
+        // Keep measurer styles in sync (media queries may alter fonts)
+        try {
+          const cur = getComputedStyle(el);
+          measurer.style.fontFamily = cur.fontFamily;
+          measurer.style.fontWeight = cur.fontWeight;
+          measurer.style.fontStyle = cur.fontStyle;
+          measurer.style.letterSpacing = cur.letterSpacing;
+          measurer.style.textTransform = cur.textTransform;
+          measurer.textContent = el.textContent || '';
+        } catch {}
         measurer.style.fontSize = mid + 'px';
         // eslint-disable-next-line no-unused-expressions
         measurer.offsetWidth;
@@ -368,9 +379,9 @@ export default function BuyUI({
     const onResize = () => fit();
     window.addEventListener('resize', onResize);
     window.addEventListener('orientationchange', onResize);
+    try { window.visualViewport?.addEventListener('resize', onResize); } catch {}
     const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(onResize) : null;
     try {
-      ro?.observe?.(el);
       const parent = el.parentElement; if (parent) ro?.observe?.(parent);
       const lb = parent?.querySelector?.('.buyui-btn.arrow-left');
       const rb = parent?.querySelector?.('.buyui-btn.arrow-right');
@@ -381,6 +392,7 @@ export default function BuyUI({
       window.removeEventListener('resize', onResize);
       window.removeEventListener('orientationchange', onResize);
       try { ro?.disconnect?.(); } catch {}
+      try { window.visualViewport?.removeEventListener('resize', onResize); } catch {}
       try { document.body.removeChild(measurer); } catch {}
     };
   }, [titleText, selectedIdx, totalItems, selected]);
