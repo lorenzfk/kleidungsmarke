@@ -1081,7 +1081,7 @@ width: 100%; display: flex; flex-direction: column; gap:12px; align-items: cente
   background-image: url('/wood2.png');
   padding-bottom: 10vh;
   margin-bottom: -72px;
-  background-size: auto 300px;
+  background-size: auto 200px;
 }
 .buyui-detail--loading{
   display: grid;
