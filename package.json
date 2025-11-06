@@ -16,6 +16,6 @@
   },
   "devDependencies": {
     "@cloudflare/next-on-pages": "^1.13.1",
-    "wrangler": "^3.105.0"
+    "wrangler": "^4.46.0"
   }
 }

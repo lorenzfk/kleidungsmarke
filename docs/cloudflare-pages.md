@@ -15,7 +15,7 @@
 3. **Build the Cloudflare bundle (optional quick test)**
    ```bash
    npm run pages:build
-   npx wrangler pages dev .vercel/output/static
+   npx wrangler@4 pages dev .vercel/output/static
    ```
    The adaptor emits Worker assets into the `.mf` folder and static files under `.vercel/output/static`. The `wrangler pages dev` command lets you smoke-test locally.
 
