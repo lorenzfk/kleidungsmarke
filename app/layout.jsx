@@ -2,7 +2,7 @@ import './globals.css';
 import AppChrome from '@/components/AppChrome';
 import ViewportHeightFix from '@/components/ViewportHeightFix';
 import ZoomBlocker from '@/components/ZoomBlocker';
-export const runtime = 'edge';
+
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://kleidungsmarke.de';
 
 export const metadata = {
