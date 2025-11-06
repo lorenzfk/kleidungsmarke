@@ -96,8 +96,9 @@ export default function useTalkBubble({ selectedId, section, copy = {} }) {
   // Idle chatter when nothing selected
   useEffect(() => {
     if (selectedId || section) return;
-    const idle = greeting || readIdleText();
-    if (idle) window.kmSaySet?.(idle, { playTalk: false });
+    const trimmed = (typeof greeting === 'string' ? greeting.trim() : '');
+    if (trimmed.length === 0) return;
+    window.kmSaySet?.(trimmed, { playTalk: false });
   }, [selectedId, section, greeting]);
 
   useEffect(() => {

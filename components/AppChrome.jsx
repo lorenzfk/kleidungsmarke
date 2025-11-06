@@ -742,7 +742,12 @@ export default function AppChrome({ title = 'Shop' }) {
 
           <div className="chrome-title" ref={chromeTitleRef} aria-live="polite">{displayTitle}</div>
 
-          <Link href="/cart" className="chrome-btn box chrome-cart" aria-label={cartAria}>
+          <Link
+            href="/cart"
+            className="chrome-btn box chrome-cart"
+            aria-label={cartAria}
+            style={pathname === '/cart' ? { opacity: 0, pointerEvents: 'none' } : undefined}
+          >
             <span>Warenkorb</span>
             <span
               className="cart-badge"
