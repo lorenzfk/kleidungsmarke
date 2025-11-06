@@ -960,7 +960,7 @@ width: 100%; display: flex; flex-direction: column; gap:12px; align-items: cente
   z-index: 25!important;
 }
 
-.buyui-wrap{width: 100%; display: grid; gap: 0px; pointer-events: all;}
+.buyui-wrap{width: 100%; display: grid; gap: 0px; pointer-events: all!important;}
 
 /* Leather middle bar (PNG, repeat-x) */
 .buyui-bar{

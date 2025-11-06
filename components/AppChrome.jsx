@@ -765,7 +765,7 @@ export default function AppChrome({ title = 'Shop' }) {
           onClick={openSettings}
           className="chrome-tab box chrome-settings-btn"
         >
-          Settings
+          Einstellungen
         </button>
       </nav>
 
