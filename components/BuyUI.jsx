@@ -223,7 +223,7 @@ export default function BuyUI({
               if (!cancelled) setProduct(merged);
               themeJsonAvailable = true;
               try { sessionStorage.setItem('km_theme_json_available', '1'); } catch {}
-            } else if (r2.status === 404) {
+            } else {
               themeJsonAvailable = false;
               try { sessionStorage.setItem('km_theme_json_available', '0'); } catch {}
             }
@@ -235,15 +235,22 @@ export default function BuyUI({
 
       } catch (e) {
         // 3) fallback to theme JSON directly
-        try {
-          const r2 = themeJsonAvailable === false ? null : await fetch(`/products/${handle}.json`, { cache: 'no-store' });
-          if (!r2?.ok) throw new Error(`HTTP ${r2?.status}`);
-          const d2 = await r2.json();
-          const adapted = adaptProduct(d2, selected);
-          if (!cancelled) setProduct(adapted);
-        } catch {
-          // last resort: synthesize from the selection card
-          if (!cancelled) setProduct(synthesizeFromSelected(selected));
+        if (themeJsonAvailable !== false) {
+          try {
+            const r2 = await fetch(`/products/${handle}.json`, { cache: 'no-store' });
+            if (r2.ok) {
+              const d2 = await r2.json();
+              const adapted = adaptProduct(d2, selected);
+              if (!cancelled) setProduct(adapted);
+            } else {
+              themeJsonAvailable = false;
+            }
+          } catch {
+            themeJsonAvailable = false;
+          }
+        }
+        if (themeJsonAvailable === false && !cancelled) {
+          setProduct(synthesizeFromSelected(selected));
         }
       } finally {
         if (!cancelled) setPLoading(false);

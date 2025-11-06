@@ -14,7 +14,7 @@ body {
 }
 /* Reduce accidental zooms on touch UIs */
 html, body { touch-action: manipulation; }
-body.lock-scroll { overflow: hidden; border: 20px solid blue}
+body.lock-scroll { overflow: hidden; }
 body::-webkit-scrollbar { display: none; }
 
 /* --- 3D layer --- */
@@ -114,7 +114,7 @@ canvas.webgl { display:block; width:100%; height:100%; }
 
 /* --- Overlay (shown when selected) --- */
 
-#buyui[data-active="false"]  { transform: scale(1) translateY(100%);}
+#buyui[data-active="false"]  { transform: scale(1) translateY(100%); }
 
 /* The "box" of the overlay */
 .buy-card {
@@ -407,7 +407,7 @@ iframe{
   margin: 0 auto;
 }
 .buyui-detail .product-poster {
-  width: min(92%, 520px); /* percent of container to handle iOS 100vw quirks */
+  width: min(92%, 420px); /* percent of container to handle iOS 100vw quirks */
 }
 .cart-title { color: var(--text-color); margin: 0 0 12px; font-weight: 800; font-size: clamp(1.6rem, 4vw, 2.2rem); }
 .cart-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
