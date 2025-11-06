@@ -477,7 +477,7 @@ export default function AppChrome({ title = 'Shop' }) {
   // New rules:
   // - On ANY collection route (/collections or /collections/[handle]) -> label "shop", click routes to "/"
   // - Everywhere else -> label "zurück", click handleBack (on home this may show lockscreen)
-  const backText = (isCollection || pathname === '/cart') ? 'shop' : 'zurück';
+  const backText = (isCollection || pathname === '/cart') ? 'Shop' : 'zurück';
   const onBackClick = (isCollection || pathname === '/cart') ? (() => router.push('/')) : handleBack;
 
   /* ---------- Dynamic title ---------- */
@@ -783,7 +783,7 @@ export default function AppChrome({ title = 'Shop' }) {
             role="document"
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="settings-title">Einstellungen</h2>
+            <h2 className="settings-title">Settings</h2>
             <div className="settings-card">
               <div className="settings-row">
                 <span className="settings-row-label">Ton</span>
