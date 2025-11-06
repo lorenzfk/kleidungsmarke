@@ -294,10 +294,11 @@ export default function ThreeCatalog({ products }) {
       el.addEventListener('pointercancel', onPointerUp);
       el.addEventListener('pointerleave', onPointerUp);
     } else {
-      el.addEventListener('touchstart', onTouchStart, { passive: false });
-      el.addEventListener('touchmove', onTouchMove, { passive: false });
-      el.addEventListener('touchend', onTouchEnd, { passive: false });
-      el.addEventListener('touchcancel', onTouchEnd, { passive: false });
+      const touchOpts = { passive: false };
+      el.addEventListener('touchstart', onTouchStart, touchOpts);
+      el.addEventListener('touchmove', onTouchMove, touchOpts);
+      el.addEventListener('touchend', onTouchEnd, touchOpts);
+      el.addEventListener('touchcancel', onTouchEnd, touchOpts);
     }
 
     return () => {
@@ -308,10 +309,11 @@ export default function ThreeCatalog({ products }) {
         el.removeEventListener('pointercancel', onPointerUp);
         el.removeEventListener('pointerleave', onPointerUp);
       } else {
-        el.removeEventListener('touchstart', onTouchStart);
-        el.removeEventListener('touchmove', onTouchMove);
-        el.removeEventListener('touchend', onTouchEnd);
-        el.removeEventListener('touchcancel', onTouchEnd);
+        const touchOpts = { passive: false };
+        el.removeEventListener('touchstart', onTouchStart, touchOpts);
+        el.removeEventListener('touchmove', onTouchMove, touchOpts);
+        el.removeEventListener('touchend', onTouchEnd, touchOpts);
+        el.removeEventListener('touchcancel', onTouchEnd, touchOpts);
       }
       if (pointerActive || touchActive) endDrag();
     };

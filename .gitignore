@@ -5,6 +5,8 @@ out/
 dist/
 build/
 .vercel/
+.wrangler/
+.mf/
 .env*
 *.log
 .DS_Store

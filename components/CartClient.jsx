@@ -106,7 +106,7 @@ export default function CartClient() {
             <img src="/horsecycle.gif" alt="Warenkorb wird geladen" className="cart-loading__img" />
           </div>
         ) : !items.length ? (
-          <p style={{ color: '#fff' }}>Dein Warenkorb ist leer.</p>
+          <p className="cart-empty">Dein Warenkorb ist leer.</p>
         ) : (
           <>
             <ul className="cart-list">

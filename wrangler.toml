@@ -1,0 +1,6 @@
+name = "kleidungsmarke-next"
+compatibility_date = "2025-02-14"
+pages_build_output_dir = ".vercel/output/static"
+
+[vars]
+NEXT_ON_PAGES = "1"

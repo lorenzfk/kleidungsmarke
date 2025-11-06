@@ -4,7 +4,7 @@
 html, body { height: 100%; margin: 0;}
 body {
   background:black;
-  background-image: url('../public/wood1.png');
+  background-image: url('../public/wood2.png');
   background-size: auto 200px;
   font-family: sans-serif; 
   overflow-y: auto;  
@@ -24,7 +24,7 @@ canvas.webgl { display:block; width:100%; height:100%; }
 /* --- Selection anchor (invisible) --- */
 #km-select-target {
   position: absolute;
-  width: 40vh;
+  width: 100%;
   height: 40vh;
   top:0;
   left: 50%;
@@ -465,6 +465,13 @@ button:hover:not(.km-lock-knob){
 .cart-loading__img{
   width: clamp(160px, 50vw, 300px);
   height: auto;
+}
+.cart-empty{
+  color: #fff;
+  text-align: center;
+  margin: 80px 0;
+  font-size: 1.1rem;
+  font-weight: 600;
 }
 
 .cart-actions { display:flex; gap:10px; align-items:center; justify-content: space-evenly;
@@ -1071,7 +1078,7 @@ width: 100%; display: flex; flex-direction: column; gap:12px; align-items: cente
   margin: 0;
   background-color: beige;
   min-height: 500px;
-  background-image: url('/wood1.png');
+  background-image: url('/wood2.png');
   padding-bottom: 10vh;
   margin-bottom: -72px;
   background-size: auto 300px;
