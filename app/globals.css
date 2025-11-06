@@ -344,7 +344,7 @@ iframe{
 
 
 .product-price { font-weight: 800; font-size: clamp(1.5rem, 2.5vw, 1.6rem); margin-bottom: 12px; }
-.product-desc { line-height: 1.6; opacity: .92; }
+.product-desc { line-height: 1.6; opacity: 1;font-size: 1.2em; }
 .back-link { margin-bottom: 16px; display: inline-block; }
 .product-actions { margin-top: 18px; }
 
@@ -1099,7 +1099,7 @@ width: 100%; display: flex; flex-direction: column; gap:12px; align-items: cente
 }
 .product-page, .cart-page, .collection-page, .related-section, .legal-page, .related-card{
   -webkit-filter: drop-shadow(0 .1rem 0px rgba(0,0,0,.5)) drop-shadow(0 .1rem 0px rgba(255,255,255,.5));
-  filter: drop-shadow(0 .1rem 0px rgba(0,0,0,.5)) drop-shadow(0 .1rem 0px rgba(255,255,255,.5));
+  filter: drop-shadow(0 -1px 1px rgba(0,0,0,.5)) drop-shadow(0 1px 0px rgba(255,255,255,.5));
 }
 .qty button{
   color:white;
