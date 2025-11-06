@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server';
 import { getCollectionItems } from '@/lib/catalog';
 
+export const runtime = 'edge';
 export const dynamic = 'force-dynamic';         // no caching during dev
 export const revalidate = 0;
 

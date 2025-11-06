@@ -1,7 +1,7 @@
 import { shopifyFetch } from '@/lib/shopify';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://kleidungsmarke.de';
-
+export const runtime = 'edge';
 export default async function sitemap() {
   const base = SITE_URL.replace(/\/$/, '');
   const urls = [

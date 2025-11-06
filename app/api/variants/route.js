@@ -1,5 +1,6 @@
 import { shopifyFetch } from '@/lib/shopify';
 
+export const runtime = 'edge';
 export async function POST(req) {
   const { ids } = await req.json();
 

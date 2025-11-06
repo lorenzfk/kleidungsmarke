@@ -1,6 +1,6 @@
 // app/api/mainpage/route.js
 import { getMainpageData } from '@/lib/mainpage';
-
+export const runtime = 'edge';
 export const dynamic = 'force-dynamic';
 
 export async function GET() {

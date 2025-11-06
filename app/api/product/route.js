@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server';
 import { getProductByHandle } from '@/lib/shopify'; // if '@' alias isn't set, use: '../../../lib/shopify'
 
+export const runtime = 'edge';
 export const dynamic = 'force-dynamic'; // don't cache in the App Router
 
 export async function GET(req) {
