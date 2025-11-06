@@ -50,6 +50,7 @@ export default function ThreeCatalog({ products }) {
   const containerRef = useRef(null);
   const contentRef = useRef(null);
   const overlayRef = useRef(null);
+  const selectedRef = useRef(null);
 
   const defaultMainpage = { greeting: '', about: '', legalMessage: '', legalFulltext: '', horseClickMessage: '', backgroundUrl: '', envMapUrl: '' };
   const [mainpage, setMainpage] = useState(() => {
@@ -96,6 +97,9 @@ export default function ThreeCatalog({ products }) {
   }, []);
 
   const [selectedId, setSelectedId] = useState(null);
+  useEffect(() => {
+    selectedRef.current = selectedId;
+  }, [selectedId]);
   const [section, setSection] = useState(null); // 'about' | 'legal' | null
 
   // SECTION param sync
@@ -202,6 +206,116 @@ export default function ThreeCatalog({ products }) {
     backgroundUrl: mainpage.backgroundUrl,
   });
   useEngineSelectionSync({ selectedId, section, contentRef, overlayRef });
+  useEffect(() => {
+    if (!selectedId) {
+      getEngine()?.onSelectionDragEnd?.();
+    }
+  }, [selectedId]);
+
+  useEffect(() => {
+    const el = document.getElementById('km-select-target');
+    const eng = getEngine();
+    if (!el || !eng) return;
+
+    let pointerActive = false;
+    let touchActive = false;
+
+    const getClientX = (event) => {
+      if (event?.touches?.length) return event.touches[0].clientX;
+      return event?.clientX ?? 0;
+    };
+
+    const startDrag = (x) => {
+      if (!selectedRef.current) return;
+      eng.onSelectionDragStart?.(x);
+    };
+    const moveDrag = (x) => {
+      if (!selectedRef.current) return;
+      eng.onSelectionDragMove?.(x);
+    };
+    const endDrag = () => {
+      eng.onSelectionDragEnd?.();
+    };
+
+    const onPointerDown = (event) => {
+      if (!selectedRef.current) return;
+      pointerActive = true;
+      const x = getClientX(event);
+      startDrag(x);
+      el.setPointerCapture?.(event.pointerId ?? 0);
+      event.preventDefault();
+      event.stopPropagation();
+    };
+    const onPointerMove = (event) => {
+      if (!pointerActive) return;
+      const x = getClientX(event);
+      moveDrag(x);
+      event.preventDefault();
+      event.stopPropagation();
+    };
+    const onPointerUp = (event) => {
+      if (!pointerActive) return;
+      pointerActive = false;
+      endDrag();
+      el.releasePointerCapture?.(event.pointerId ?? 0);
+      event.preventDefault();
+      event.stopPropagation();
+    };
+
+    const onTouchStart = (event) => {
+      if (!selectedRef.current || touchActive) return;
+      touchActive = true;
+      const x = getClientX(event);
+      startDrag(x);
+      event.preventDefault();
+      event.stopPropagation();
+    };
+    const onTouchMove = (event) => {
+      if (!touchActive) return;
+      const x = getClientX(event);
+      moveDrag(x);
+      event.preventDefault();
+      event.stopPropagation();
+    };
+    const onTouchEnd = (event) => {
+      if (!touchActive) return;
+      touchActive = false;
+      endDrag();
+      event.preventDefault();
+      event.stopPropagation();
+    };
+
+    const supportsPointer = typeof window !== 'undefined' && 'onpointerdown' in window;
+
+    if (supportsPointer) {
+      el.addEventListener('pointerdown', onPointerDown);
+      el.addEventListener('pointermove', onPointerMove);
+      el.addEventListener('pointerup', onPointerUp);
+      el.addEventListener('pointercancel', onPointerUp);
+      el.addEventListener('pointerleave', onPointerUp);
+    } else {
+      el.addEventListener('touchstart', onTouchStart, { passive: false });
+      el.addEventListener('touchmove', onTouchMove, { passive: false });
+      el.addEventListener('touchend', onTouchEnd, { passive: false });
+      el.addEventListener('touchcancel', onTouchEnd, { passive: false });
+    }
+
+    return () => {
+      if (supportsPointer) {
+        el.removeEventListener('pointerdown', onPointerDown);
+        el.removeEventListener('pointermove', onPointerMove);
+        el.removeEventListener('pointerup', onPointerUp);
+        el.removeEventListener('pointercancel', onPointerUp);
+        el.removeEventListener('pointerleave', onPointerUp);
+      } else {
+        el.removeEventListener('touchstart', onTouchStart);
+        el.removeEventListener('touchmove', onTouchMove);
+        el.removeEventListener('touchend', onTouchEnd);
+        el.removeEventListener('touchcancel', onTouchEnd);
+      }
+      if (pointerActive || touchActive) endDrag();
+    };
+  }, []);
 
   const overlayData = useEngineOverlay();
   const overlayHeight = Math.max(0, overlayData.contentHeightPx || 0);
@@ -254,7 +368,7 @@ export default function ThreeCatalog({ products }) {
       <div id="km-select-target" aria-hidden="true" />
 
       {/* Character bubble (persistent) */}
-      <TalkBubble text={bubble.text} x={bubble.x} y={bubble.y} visible={bubble.visible} clamped={bubble.clamped} />
+      <TalkBubble text={bubble.text} x={bubble.x} y={bubble.y} visible={bubble.visible} clamped={bubble.clamped} onPop={bubble.pop} />
       <LegalOverlay message={mainpage.legalMessage} visible={section === 'legal'} />
 
       {/* Foreground scroll layer */}

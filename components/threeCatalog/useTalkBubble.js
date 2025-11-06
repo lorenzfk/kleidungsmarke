@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 
 import { getEngine } from '@/lib/three-catalog/engine';
@@ -8,7 +8,16 @@ import { readIdleText } from '@/components/threeCatalog/text';
 import { playSound } from '@/lib/sound';
 
 export default function useTalkBubble({ selectedId, section, copy = {} }) {
-  const [bubble, setBubble] = useState({ text: '', x: 0, y: 0, visible: false, clamped: false, hiddenByScroll: false, soundOverride: null });
+  const [bubble, setBubble] = useState({
+    text: '',
+    x: 0,
+    y: 0,
+    visible: false,
+    clamped: false,
+    hiddenByScroll: false,
+    hiddenByClick: false,
+    soundOverride: null,
+  });
   const selectedRef = useRef(selectedId);
   const prevVisibleRef = useRef(false);
   const prevTextRef = useRef('');
@@ -29,12 +38,13 @@ export default function useTalkBubble({ selectedId, section, copy = {} }) {
       setBubble((prev) => ({
         ...prev,
         text,
+        hiddenByClick: false,
         visible: !prev.hiddenByScroll && !!text,
         soundOverride: sound || null,
       }));
       if (sound) playSound(sound);
     };
-    const clear = () => setBubble((prev) => ({ ...prev, visible: false, text: '', soundOverride: null }));
+    const clear = () => setBubble((prev) => ({ ...prev, visible: false, text: '', soundOverride: null, hiddenByClick: false }));
 
     const onSaySet = (e) => set(e.detail?.text || '', e.detail?.options || {});
     const onSayClear = () => clear();
@@ -100,11 +110,21 @@ export default function useTalkBubble({ selectedId, section, copy = {} }) {
     return () => window.removeEventListener('km_character_click', onClick);
   }, [horseClickMessage]);
 
+  const popBubble = useCallback(() => {
+    let popped = false;
+    setBubble((prev) => {
+      if (!prev.visible) return prev;
+      popped = true;
+      return { ...prev, visible: false, hiddenByClick: true, soundOverride: 'bubble-pop' };
+    });
+    if (popped) playSound('bubble-pop');
+  }, []);
+
   // Hide bubble whenever a product is selected
   useEffect(() => {
     if (!selectedId) return;
     window.kmSayClear?.();
-    setBubble((prev) => ({ ...prev, text: '', visible: false, soundOverride: null }));
+    setBubble((prev) => ({ ...prev, text: '', visible: false, soundOverride: null, hiddenByClick: false }));
   }, [selectedId]);
 
   useEffect(() => {
@@ -121,7 +141,7 @@ export default function useTalkBubble({ selectedId, section, copy = {} }) {
     const onScrolled = (e) => {
       const scrolled = !!e.detail?.scrolled;
       setBubble((prev) => {
-        const shouldBeVisible = !scrolled && !!prev.text;
+        const shouldBeVisible = !scrolled && !prev.hiddenByClick && !!prev.text;
         if (prev.hiddenByScroll === scrolled && prev.visible === shouldBeVisible) return prev;
         return { ...prev, hiddenByScroll: scrolled, visible: shouldBeVisible };
       });
@@ -130,7 +150,7 @@ export default function useTalkBubble({ selectedId, section, copy = {} }) {
     const current = typeof window !== 'undefined' ? window.__KM_BUBBLE_SCROLLED__ : undefined;
     if (typeof current === 'boolean') {
       setBubble((prev) => {
-        const shouldBeVisible = !current && !!prev.text;
+        const shouldBeVisible = !current && !prev.hiddenByClick && !!prev.text;
         if (prev.hiddenByScroll === current && prev.visible === shouldBeVisible) return prev;
         return { ...prev, hiddenByScroll: current, visible: shouldBeVisible };
       });
@@ -138,5 +158,5 @@ export default function useTalkBubble({ selectedId, section, copy = {} }) {
     return () => window.removeEventListener('km_bubble_scrolled', onScrolled);
   }, []);
 
-  return bubble;
+  return useMemo(() => ({ ...bubble, pop: popBubble }), [bubble, popBubble]);
 }

@@ -2,7 +2,7 @@
 'use client';
 import { useEffect, useRef } from 'react';
 
-export default function TalkBubble({ text, x, y, visible, clamped }) {
+export default function TalkBubble({ text, x, y, visible, clamped, onPop }) {
   const ref = useRef(null);
   const anchorRef = useRef(clamped ? 0.5 : 0.9);
   const isVisible = visible && !!text;
@@ -46,6 +46,11 @@ export default function TalkBubble({ text, x, y, visible, clamped }) {
       ref={ref}
       className="talk-bubble-wrap"
       data-visible={isVisible ? '1' : '0'}
+      onClick={(event) => {
+        if (!isVisible) return;
+        event.stopPropagation();
+        if (onPop) onPop();
+      }}
       style={{
         position: 'fixed',
         left: x,
@@ -53,8 +58,8 @@ export default function TalkBubble({ text, x, y, visible, clamped }) {
         transform: `translate(${-anchorRef.current * 100}%, 0%)`,
         opacity: isVisible ? 1 : 0,
         visibility: isVisible ? 'visible' : 'hidden',
-        pointerEvents: 'none',
-        zIndex:1,          // ensure above the canvas
+        pointerEvents: isVisible ? 'auto' : 'none',
+        zIndex: 7,          // ensure above the canvas/content layers
       }}
       role="status"
       aria-live="polite"

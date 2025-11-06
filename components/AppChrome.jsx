@@ -351,6 +351,7 @@ export default function AppChrome({ title = 'Shop' }) {
       unlock: '/sounds/unlock.mp3',
       lock: '/sounds/lock.mp3',
       bubble: '/sounds/bubble.mp3',
+      'bubble-pop': '/sounds/bubble-pop.mp3',
       talking: '/sounds/talking.mp3',
     });
   }, []);
@@ -363,11 +364,20 @@ export default function AppChrome({ title = 'Shop' }) {
   }, []);
   const toggleSound = useCallback(() => { toggleMute(); }, []);
 
+  const [settingsMounted, setSettingsMounted] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const openSettings = useCallback(() => setSettingsOpen(true), []);
+  const openSettings = useCallback(() => {
+    setSettingsMounted(true);
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(() => setSettingsOpen(true));
+    } else {
+      setSettingsOpen(true);
+    }
+  }, []);
   const closeSettings = useCallback(() => setSettingsOpen(false), []);
 
   useEffect(() => {
+    if (!settingsMounted) return;
     if (!settingsOpen || typeof document === 'undefined') return;
     const onKey = (e) => { if (e.key === 'Escape') closeSettings(); };
     document.addEventListener('keydown', onKey);
@@ -377,7 +387,14 @@ export default function AppChrome({ title = 'Shop' }) {
       document.removeEventListener('keydown', onKey);
       document.body.style.overflow = prevOverflow;
     };
-  }, [settingsOpen, closeSettings]);
+  }, [settingsOpen, settingsMounted, closeSettings]);
+
+  useEffect(() => {
+    if (!settingsMounted) return;
+    if (settingsOpen) return;
+    const timer = setTimeout(() => setSettingsMounted(false), 360);
+    return () => clearTimeout(timer);
+  }, [settingsOpen, settingsMounted]);
 
   // selection flag (only relevant on catalog)
   const [hasSelection, setHasSelection] = useState(false);
@@ -753,16 +770,16 @@ export default function AppChrome({ title = 'Shop' }) {
       </nav>
 
       <LockOverlay productTitle={productTitle || undefined} />
-      {settingsOpen && (
+      {settingsMounted && (
         <div
-          className="settings-overlay"
+          className={`settings-overlay${settingsOpen ? ' settings-overlay--open' : ''}`}
           role="dialog"
           aria-modal="true"
           aria-label="Einstellungen"
           onClick={closeSettings}
         >
           <div
-            className="settings-window"
+            className={`settings-window${settingsOpen ? ' settings-window--open' : ''}`}
             role="document"
             onClick={(e) => e.stopPropagation()}
           >
