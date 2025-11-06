@@ -3,6 +3,8 @@ import { notFound } from 'next/navigation';
 import CollectionClient from '@/components/CollectionClient';
 import { getCollectionItems } from '@/lib/catalog';
 
+export const runtime = 'edge';
+
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://kleidungsmarke.de';
 
 function stripHtml(html) {

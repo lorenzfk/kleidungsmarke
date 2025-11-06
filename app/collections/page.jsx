@@ -3,6 +3,8 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { shopifyFetch } from '@/lib/shopify';
 
+export const runtime = 'edge';
+
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://kleidungsmarke.de';
 
 export const metadata = {

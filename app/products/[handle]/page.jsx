@@ -2,6 +2,7 @@
 import { notFound } from 'next/navigation';
 import ProductDetailClient from '@/components/ProductDetailClient';
 import { getProductByHandle, getRelatedProducts } from '@/lib/shopify';
+export const runtime = 'edge';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://kleidungsmarke.de';
 

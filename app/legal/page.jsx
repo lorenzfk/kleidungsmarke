@@ -1,6 +1,7 @@
 import { getMainpageData } from '@/lib/mainpage';
 
 export const dynamic = 'force-dynamic';
+export const runtime = 'edge';
 
 export const metadata = {
   title: 'Rechtliches und Impressum.',
