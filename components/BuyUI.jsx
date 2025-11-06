@@ -434,6 +434,7 @@ export default function BuyUI({
 
         {/* Wood panel with embedded content */}
         <div className="buyui-wood" ref={woodRef}>
+          <div id="km-select-target" aria-hidden="true" />
           {!hasSelection ? null : (
             <>
               {/* SPECIAL: render collection client */}

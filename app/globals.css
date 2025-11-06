@@ -23,16 +23,16 @@ canvas.webgl { display:block; width:100%; height:100%; }
 
 /* --- Selection anchor (invisible) --- */
 #km-select-target {
-  position: fixed;
-  top: 72px;
-  left: 50%;
+  position: absolute;
+  width: 40vh;
   height: 40vh;
-  width: 40vh; /* 1:1 aspect */
+  top:0;
+  left: 50%;
   transform: translateX(-50%);
   pointer-events: auto; /* capture swipe gestures */
-  z-index: 2;
-  border: 0;
-  opacity: 0;
+  z-index: 1;
+  border: none;
+  opacity: 1;
   background: transparent;
   touch-action: none;
 }
@@ -952,15 +952,14 @@ width: 100%; display: flex; flex-direction: column; gap:12px; align-items: cente
   padding: 0;
   padding-top: calc( var(--vh) * 40);
   height: 100vh;
-  pointer-events: none;
   overflow-x: hidden;
   overflow-y: auto;
   bbackground-size: 100% 100%;
   transition: .5s ease;
-  z-index: 25!important;
+  z-index: 2!important;
 }
 
-.buyui-wrap{width: 100%; display: grid; gap: 0px; pointer-events: all!important;}
+.buyui-wrap{width: 100%; display: grid; gap: 0px; pointer-events: all!important;z-index: 25!important;}
 
 /* Leather middle bar (PNG, repeat-x) */
 .buyui-bar{
