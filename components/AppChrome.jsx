@@ -44,7 +44,8 @@ function LockOverlay({ productTitle }) {
   const knobRef = useRef(null);
   const drag = useRef({ active: false, startX: 0, offset: 0 });
 
-  const [message, setMessage] = useState('...');
+  const [message, setMessage] = useState('');
+  const [messageReady, setMessageReady] = useState(false);
   const [backgroundUrl, setBackgroundUrl] = useState(() => {
     if (typeof window === 'undefined') return '';
     try {
@@ -84,29 +85,43 @@ function LockOverlay({ productTitle }) {
       } catch { return '...'; }
     })();
 
+    let hasMessage = false;
+    const applyMessage = (value) => {
+      if (!mounted) return;
+      hasMessage = true;
+      setMessage(value);
+      setMessageReady(true);
+    };
+
     try {
       const cached = sessionStorage.getItem('km_welcome_msg');
-      if (cached && mounted) setMessage(cached);
-      else if (mounted) setMessage(fallback);
-    } catch { if (mounted) setMessage(fallback); }
+      if (cached) applyMessage(cached);
+    } catch {}
 
     (async () => {
       try {
         const res = await fetch('/api/settings', { cache: 'no-store' });
+        if (!mounted) return;
         if (res.ok) {
           const json = await res.json();
           const fromShop = (json?.welcome || '').trim();
-          if (fromShop && mounted) {
-            setMessage(fromShop);
+          if (fromShop) {
+            applyMessage(fromShop);
             try { sessionStorage.setItem('km_welcome_msg', fromShop); } catch {}
+          } else if (!hasMessage) {
+            applyMessage(fallback);
           }
           const bg = (json?.backgroundUrl || '').trim();
           if (bg && mounted) {
             setBackgroundUrl(bg);
             try { sessionStorage.setItem('km_lock_bg', bg); } catch {}
           }
+        } else if (!hasMessage) {
+          applyMessage(fallback);
         }
-      } catch { /* keep fallback */ }
+      } catch {
+        if (!hasMessage) applyMessage(fallback);
+      }
     })();
 
     return () => { mounted = false; };
@@ -263,6 +278,8 @@ function LockOverlay({ productTitle }) {
     weekday: 'long', day: 'numeric', month: 'long'
   }).format(now);
 
+  const showNotification = messageReady && (msgPre || msgPost || ctaHandle);
+
   return (
     <div className={`km-lock${unlocking ? ' is-unlocking' : ''}${locking ? ' is-locking' : ''}`} role="dialog" aria-modal="true" aria-label="Willkommen">
       <div
@@ -274,36 +291,38 @@ function LockOverlay({ productTitle }) {
         <div className="km-lock-date">{dateStr}</div>
       </div>
 
-      <div
-        className="km-lock-notif"
-        aria-live="polite"
-        onClick={ctaHandle ? openCTA : undefined}
-        onKeyDown={ctaHandle ? (e) => { if (e.key === 'Enter' || e.key === ' ') openCTA(e); } : undefined}
-        role={ctaHandle ? 'button' : undefined}
-        tabIndex={ctaHandle ? 0 : undefined}
-        style={ctaHandle ? { cursor: 'pointer' } : undefined}
-      >
-        <div className="km-lock-notif-left" aria-hidden="true">
-          <div className="km-lock-imsg-dot" />
-        </div>
-        <div className="km-lock-notif-body">
-          <div className="km-lock-notif-title">Kleidungsmarke</div>
-          <div className="km-lock-notif-text">
-            {msgPre}
-            {ctaHandle && (
-              <button
-                className="km-lock-cta"
-                onClick={openCTA}
-                aria-label={`Kollektion ${ctaHandle} öffnen`}
-                type="button"
-              >
-                öffnen
-              </button>
-            )}
-            {msgPost ? ` ${msgPost}` : ''}
+      {showNotification && (
+        <div
+          className="km-lock-notif"
+          aria-live="polite"
+          onClick={ctaHandle ? openCTA : undefined}
+          onKeyDown={ctaHandle ? (e) => { if (e.key === 'Enter' || e.key === ' ') openCTA(e); } : undefined}
+          role={ctaHandle ? 'button' : undefined}
+          tabIndex={ctaHandle ? 0 : undefined}
+          style={ctaHandle ? { cursor: 'pointer' } : undefined}
+        >
+          <div className="km-lock-notif-left" aria-hidden="true">
+            <div className="km-lock-imsg-dot" />
+          </div>
+          <div className="km-lock-notif-body">
+            <div className="km-lock-notif-title">Kleidungsmarke</div>
+            <div className="km-lock-notif-text">
+              {msgPre}
+              {ctaHandle && (
+                <button
+                  className="km-lock-cta"
+                  onClick={openCTA}
+                  aria-label={`Kollektion ${ctaHandle} öffnen`}
+                  type="button"
+                >
+                  öffnen
+                </button>
+              )}
+              {msgPost ? ` ${msgPost}` : ''}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       <div className="km-lock-slider" ref={trackRef} aria-label="Zum Entsperren nach rechts schieben">
         <div className="km-lock-slide-text">slide to unlock</div>
@@ -343,6 +362,22 @@ export default function AppChrome({ title = 'Shop' }) {
     return unsubscribe;
   }, []);
   const toggleSound = useCallback(() => { toggleMute(); }, []);
+
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const openSettings = useCallback(() => setSettingsOpen(true), []);
+  const closeSettings = useCallback(() => setSettingsOpen(false), []);
+
+  useEffect(() => {
+    if (!settingsOpen || typeof document === 'undefined') return;
+    const onKey = (e) => { if (e.key === 'Escape') closeSettings(); };
+    document.addEventListener('keydown', onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [settingsOpen, closeSettings]);
 
   // selection flag (only relevant on catalog)
   const [hasSelection, setHasSelection] = useState(false);
@@ -505,7 +540,8 @@ export default function AppChrome({ title = 'Shop' }) {
     const el = chromeTitleRef.current;
     if (!el) return;
     el.style.whiteSpace = 'nowrap';
-    el.style.overflow = 'visible';
+    el.style.overflow = 'hidden';
+    el.style.textOverflow = 'ellipsis';
 
     const minPx = 8;
 
@@ -520,27 +556,43 @@ export default function AppChrome({ title = 'Shop' }) {
     measurer.textContent = el.textContent || '';
     document.body.appendChild(measurer);
 
+    let pendingAttempts = 0;
+    const readWidth = (node) => {
+      if (!node) return 0;
+      const rect = node.getBoundingClientRect();
+      if (rect && rect.width) return rect.width;
+      const fallbackWidth = node.offsetWidth || node.clientWidth || 0;
+      return fallbackWidth;
+    };
+
     const fit = () => {
       const parent = el.parentElement; if (!parent) return;
       const leftBtn = parent.querySelector('.chrome-btn.arrow');
       const rightBtn = parent.querySelector('.chrome-cart');
       const bufferL = 12, bufferR = 12; // symmetric margins by default
-      let available = 0;
-      if (leftBtn && rightBtn) {
-        const l = leftBtn.getBoundingClientRect();
-        const r = rightBtn.getBoundingClientRect();
-        available = Math.max(0, r.left - l.right - (bufferL + bufferR));
-      } else {
-        const rectW = parent.getBoundingClientRect().width || parent.clientWidth || 0;
-        const cs = getComputedStyle(parent);
-        const padL = parseFloat(cs.paddingLeft || '0');
-        const padR = parseFloat(cs.paddingRight || '0');
-        const contentW = Math.max(0, rectW - padL - padR);
-        const lw = leftBtn ? leftBtn.getBoundingClientRect().width : 0;
-        const rw = rightBtn ? rightBtn.getBoundingClientRect().width : 0;
-        available = Math.max(0, contentW - lw - rw - (bufferL + bufferR));
+
+      const rectW = parent.getBoundingClientRect().width || parent.clientWidth || 0;
+      const cs = getComputedStyle(parent);
+      const padL = parseFloat(cs.paddingLeft || '0');
+      const padR = parseFloat(cs.paddingRight || '0');
+      const contentW = Math.max(0, rectW - padL - padR);
+      const lw = readWidth(leftBtn);
+      const rw = readWidth(rightBtn);
+
+      if (((leftBtn && lw === 0) || (rightBtn && rw === 0)) && pendingAttempts < 8) {
+        pendingAttempts += 1;
+        requestAnimationFrame(fit);
+        return;
       }
-      if (available <= 0) return;
+      pendingAttempts = 0;
+
+      let available = Math.max(0, contentW - lw - rw - (bufferL + bufferR));
+
+      if (available <= 0) {
+        el.style.maxWidth = '';
+        el.style.width = '';
+        return;
+      }
       el.style.maxWidth = `${available}px`;
       // Fix the title container to the full available gap so it stays perfectly centered
       el.style.width = `${available}px`;
@@ -693,16 +745,57 @@ export default function AppChrome({ title = 'Shop' }) {
         <button type="button" onClick={goLegal} className={`chrome-tab box ${isActive('legal')}`}>Rechtliches</button>
         <button
           type="button"
-          onClick={toggleSound}
-          className={`chrome-tab sound ${muted ? 'is-muted' : ''}`}
-          aria-pressed={muted ? 'true' : 'false'}
+          onClick={openSettings}
+          className="chrome-tab box chrome-settings-btn"
         >
-          <span className="chrome-sound-label">Ton</span>
-          <span className="chrome-sound-toggle" aria-hidden="true" />
+          Settings
         </button>
       </nav>
 
       <LockOverlay productTitle={productTitle || undefined} />
+      {settingsOpen && (
+        <div
+          className="settings-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Einstellungen"
+          onClick={closeSettings}
+        >
+          <div
+            className="settings-window"
+            role="document"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="settings-title">Einstellungen</h2>
+            <div className="settings-card">
+              <div className="settings-row">
+                <span className="settings-row-label">Ton</span>
+                <button
+                  type="button"
+                  onClick={toggleSound}
+                  className={`settings-sound-btn ${muted ? 'is-muted' : ''}`}
+                  aria-pressed={muted ? 'true' : 'false'}
+                  aria-label={muted ? 'Ton einschalten' : 'Ton ausschalten'}
+                >
+                  <span className="chrome-sound-toggle" aria-hidden="true" />
+                </button>
+              </div>
+              <a
+                className="settings-row settings-link"
+                href="https://falkson.space"
+                target="_blank"
+                rel="noreferrer"
+              >
+                <span className="settings-link-text">Wer hat diese Website gemacht?</span>
+                <span className="settings-link-arrow" aria-hidden="true">›</span>
+              </a>
+            </div>
+            <button type="button" className="chrome-btn box settings-close" onClick={closeSettings}>
+              schließen
+            </button>
+          </div>
+        </div>
+      )}
     </>
   );
 }

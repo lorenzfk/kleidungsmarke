@@ -24,12 +24,16 @@ function toMoney(p) {
 export default function CartClient() {
   const [lines, setLines] = useState([]);       // [{id, qty}]
   const [variants, setVariants] = useState({}); // id -> variant
+  const [resolving, setResolving] = useState(false);
+  const [bootstrapped, setBootstrapped] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
     const l = readCart();
     setLines(l);
     const ids = l.map(x => x.id);
     if (ids.length) {
+      setResolving(true);
       fetch('/api/variants', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -37,12 +41,22 @@ export default function CartClient() {
       })
         .then(r => r.json())
         .then(({ variants }) => {
+          if (cancelled) return;
           const map = {};
           for (const v of variants) map[v.id] = v;
           setVariants(map);
         })
-        .catch(() => {});
+        .catch(() => { /* keep stale variants */ })
+        .finally(() => {
+          if (cancelled) return;
+          setResolving(false);
+          setBootstrapped(true);
+        });
+    } else {
+      setResolving(false);
+      setBootstrapped(true);
     }
+    return () => { cancelled = true; };
   }, []);
 
   const items = useMemo(
@@ -65,6 +79,7 @@ export default function CartClient() {
     [items]
   );
   const currency = items[0]?.v?.price?.currencyCode || 'EUR';
+  const isLoading = !bootstrapped || (resolving && lines.length > 0);
 
   function setQty(id, q) {
     const next = lines.map(l => (l.id === id ? { ...l, qty: Math.max(1, q) } : l));
@@ -86,7 +101,11 @@ export default function CartClient() {
         
         <h1 style={{ display: 'none' }} className="cart-title">Warenkorb</h1>
 
-        {!items.length ? (
+        {isLoading ? (
+          <div className="cart-loading" aria-live="polite">
+            <img src="/horsecycle.gif" alt="Warenkorb wird geladen" className="cart-loading__img" />
+          </div>
+        ) : !items.length ? (
           <p style={{ color: '#fff' }}>Dein Warenkorb ist leer.</p>
         ) : (
           <>

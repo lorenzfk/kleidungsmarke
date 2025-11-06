@@ -36,6 +36,9 @@ function LoadingOverlay({ visible, pct }) {
         <div className="km-progress">
           <div className="km-progress-bar" style={{ ['--km-pct']: `${pct100}%` }} />
         </div>
+        <div className="km-overlay-spinner">
+          <img src="/horsecycle.gif" alt="lädt" className="km-overlay-spinner__img" />
+        </div>
       </div>
     </div>
   );

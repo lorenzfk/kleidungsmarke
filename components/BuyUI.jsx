@@ -460,20 +460,20 @@ export default function BuyUI({
               {!isSpecialSelected && (
                 <>
                   {!product && (
-                    <div className="buyui-detail loading" aria-busy="true" aria-live="polite">
-                      <div className="spinner" />
+                    <div className="buyui-detail buyui-detail--loading" aria-busy="true" aria-live="polite">
+                      <div className="buyui-loading">
+                        <img
+                          src="/horsecycle.gif"
+                          alt="Produkt wird geladen"
+                          className="buyui-loading__img"
+                        />
+                      </div>
                     </div>
                   )}
 
                   {product && (
                     <div className="buyui-detail">
                     <ProductDetailClient product={product} related={product.related || []} embedded />
-                    </div>
-                  )}
-
-                  {!product && (
-                    <div className="buyui-detail error">
-                      
                     </div>
                   )}
                 </>
