@@ -1420,7 +1420,7 @@ width: 100%; display: flex; flex-direction: column; gap:12px; align-items: cente
   /* no opacity animation on clock when unlocking */
 }
 .km-lock-time {
-  font-size: clamp(40px, 12vw, 90px);
+  font-size: clamp(40px, 15.2vw, 90px);
   transform: scaleX(.5) scaleY(1.2) translateY(-10%);
   font-weight: 300;
   line-height: 1;
