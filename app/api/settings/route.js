@@ -12,6 +12,8 @@ export async function GET() {
         id
         updatedAt
         message: field(key: "message") { value }
+        lockUntil: field(key: "lock_until") { value }
+        lockPassword: field(key: "lock_password") { value }
         background: field(key: "background") {
           value
           reference {
@@ -62,9 +64,23 @@ export async function GET() {
       : fallback ? `${fallback.namespace}.${fallback.key}` : null;
     const updatedAt = lockscreen?.updatedAt || fallback?.updatedAt || null;
 
-    return Response.json({ welcome, from, updatedAt, backgroundUrl });
+    const lockUntilRaw = (lockscreen?.lockUntil?.value || '').trim();
+    const parsedLockUntil = lockUntilRaw ? new Date(lockUntilRaw) : null;
+    const lockUntil = parsedLockUntil && !Number.isNaN(parsedLockUntil.getTime())
+      ? parsedLockUntil.toISOString()
+      : null;
+    const lockPassword = (lockscreen?.lockPassword?.value || '').trim() || null;
+
+    return Response.json({
+      welcome,
+      from,
+      updatedAt,
+      backgroundUrl,
+      lockUntil,
+      lockPassword,
+    });
   } catch (err) {
     console.error('[api/settings] welcome fetch failed:', err?.message || err);
-    return Response.json({ welcome: '' }, { status: 200 });
+    return Response.json({ welcome: '', lockUntil: null, lockPassword: null }, { status: 200 });
   }
 }

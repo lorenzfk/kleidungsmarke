@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { playSound, toggleMute, isMuted as getMutedState, onMuteChange, configureSoundEffects } from '@/lib/sound';
+import StoreClosedOverlay from '@/components/StoreClosedOverlay';
 
 /* ========================= helpers ========================= */
 function readCartCount() {
@@ -733,6 +734,7 @@ export default function AppChrome({ title = 'Shop' }) {
 
   return (
     <>
+      <StoreClosedOverlay />
       {/* Top leather bar */}
       <div className="chrome-topbar">
         <div className="chrome-topbar__inner">
