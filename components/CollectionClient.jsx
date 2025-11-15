@@ -3,7 +3,10 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+
+const INITIAL_VISIBLE = 18;
+const LOAD_STEP = 12;
 
 export default function CollectionClient({
   title = 'Kollektion',
@@ -12,6 +15,12 @@ export default function CollectionClient({
   items = [],
   embedded = false,
 }) {
+  const [visibleCount, setVisibleCount] = useState(() => Math.min(INITIAL_VISIBLE, items.length || INITIAL_VISIBLE));
+
+  useEffect(() => {
+    setVisibleCount(Math.min(INITIAL_VISIBLE, items.length || INITIAL_VISIBLE));
+  }, [items]);
+
   const products = useMemo(
     () =>
       (items || []).map((p) => ({
@@ -25,6 +34,17 @@ export default function CollectionClient({
       })),
     [items]
   );
+
+  const totalProducts = products.length;
+  const visibleProducts = useMemo(
+    () => products.slice(0, visibleCount),
+    [products, visibleCount]
+  );
+  const hasMore = visibleCount < totalProducts;
+
+  const loadMore = useCallback(() => {
+    setVisibleCount((prev) => Math.min(totalProducts, prev + LOAD_STEP));
+  }, [totalProducts]);
 
   return (
     <div
@@ -46,7 +66,7 @@ export default function CollectionClient({
       </div>
 
       <ul className="collection-list">
-        {products.map((p) => (
+        {visibleProducts.map((p) => (
           <li key={p.id} className={`collection-card ${p.available ? '' : 'is-soldout'}`}>
             {/* same structure as before */}
             <Image
@@ -56,6 +76,8 @@ export default function CollectionClient({
               height={84}
               className="collection-card__img"
               sizes="84px"
+              loading="lazy"
+              quality={70}
             />
             <div className="collection-card__meta">
               <div className="collection-card__title">{p.name}</div>
@@ -72,6 +94,18 @@ export default function CollectionClient({
           </li>
         ))}
       </ul>
+
+      {hasMore && (
+        <div className="collection-loadmore-wrap">
+          <button
+            type="button"
+            className="collection-loadmore"
+            onClick={loadMore}
+          >
+            Weitere Produkte laden ({totalProducts - visibleCount} übrig)
+          </button>
+        </div>
+      )}
 
       <div style={{ height: '12vh' }} />
     </div>
