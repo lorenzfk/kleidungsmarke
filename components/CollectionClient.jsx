@@ -7,6 +7,25 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 const INITIAL_VISIBLE = 18;
 const LOAD_STEP = 12;
+const THUMB_SIZE = 320;
+
+function getThumbnailUrl(src, size = THUMB_SIZE) {
+  if (!src) return null;
+  if (!/^https?:\/\//i.test(src)) return src;
+  try {
+    const url = new URL(src);
+    const host = url.hostname || '';
+    const isShopify = /(?:cdn\.shopify\.com|\.myshopify\.com)$/i.test(host) || host.includes('cdn.shopify.com');
+    if (!isShopify) return src;
+    url.searchParams.set('width', String(size));
+    url.searchParams.set('height', String(size));
+    url.searchParams.set('crop', 'center');
+    url.searchParams.set('quality', '70');
+    return url.toString();
+  } catch {
+    return src;
+  }
+}
 
 export default function CollectionClient({
   title = 'Kollektion',
@@ -23,15 +42,20 @@ export default function CollectionClient({
 
   const products = useMemo(
     () =>
-      (items || []).map((p) => ({
-        id: p.id,
-        handle: p.handle,
-        name: p.title,
-        priceText: `${Number(p.price?.amount ?? 0).toFixed(2)} ${p.price?.currencyCode ?? ''}`,
-        currency: p.price?.currencyCode || '',
-        posterUrl: p.posterUrl,
-        available: p.availableForSale !== false,
-      })),
+      (items || []).map((p) => {
+        const posterUrl = p.posterUrl;
+        const thumbUrl = getThumbnailUrl(posterUrl);
+        return {
+          id: p.id,
+          handle: p.handle,
+          name: p.title,
+          priceText: `${Number(p.price?.amount ?? 0).toFixed(2)} ${p.price?.currencyCode ?? ''}`,
+          currency: p.price?.currencyCode || '',
+          posterUrl,
+          thumbUrl,
+          available: p.availableForSale !== false,
+        };
+      }),
     [items]
   );
 
@@ -70,7 +94,7 @@ export default function CollectionClient({
           <li key={p.id} className={`collection-card ${p.available ? '' : 'is-soldout'}`}>
             {/* same structure as before */}
             <Image
-              src={p.posterUrl || '/placeholder.png'}
+              src={p.thumbUrl || p.posterUrl || '/placeholder.png'}
               alt={p.name}
               width={84}
               height={84}
