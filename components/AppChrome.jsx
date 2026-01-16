@@ -477,8 +477,16 @@ export default function AppChrome({ title = 'Shop' }) {
     })();
 
     if (isCatalog) {
+      const hasSelParam = (() => {
+        try {
+          const u = new URL(window.location.href);
+          return !!u.searchParams.get('sel');
+        } catch {
+          return false;
+        }
+      })();
       // Home: if nothing active, re-show lockscreen; else clear selection/section
-      if (!hasSelection && !section) {
+      if (!hasSelection && !section && !hasSelParam) {
         try { sessionStorage.removeItem('km_lock_seen'); } catch {}
         window.dispatchEvent(new Event('km_lock_show'));
         return;

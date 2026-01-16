@@ -351,6 +351,15 @@ iframe{
   overflow-wrap: anywhere;
   word-break: break-word;
 }
+.product-desc * {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.product-desc pre,
+.product-desc code {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
 .product-desc img,
 .product-desc video,
 .product-desc iframe {

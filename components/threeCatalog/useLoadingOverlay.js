@@ -8,11 +8,17 @@ export default function useLoadingOverlay() {
   const [load, setLoad] = useState({ loaded: 0, total: 0, done: false });
   const [overlayVisible, setOverlayVisible] = useState(true);
   const hideTimeoutRef = useRef(null);
+  const doneOnceRef = useRef(false);
 
   useEffect(() => {
     const onProg = (e) => {
       const { phase, loaded, total } = e.detail || {};
-      if (phase === 'done') setLoad({ loaded: 1, total: 1, done: true });
+      if (phase === 'done') {
+        doneOnceRef.current = true;
+        setLoad({ loaded: 1, total: 1, done: true });
+        return;
+      }
+      if (doneOnceRef.current) return;
       else if (phase === 'progress' || phase === 'start') {
         const L = Math.max(0, Number(loaded || 0));
         const T = Math.max(L, Number(total || 0));
