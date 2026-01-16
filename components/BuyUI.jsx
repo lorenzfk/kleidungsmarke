@@ -266,11 +266,21 @@ export default function BuyUI({
     if (!selected) return;
     if (isSpecialSelected) {
       // Optional: route to the special collection page
+      try {
+        const path = window.location.pathname + window.location.search + window.location.hash;
+        sessionStorage.setItem('km_return_url', path);
+      } catch {}
       window.location.href = `/collections/${encodeURIComponent('special')}`;
       return;
     }
     if (onBuy) onBuy();
-    else if (selected?.handle) window.location.href = `/products/${selected.handle}`;
+    else if (selected?.handle) {
+      try {
+        const path = window.location.pathname + window.location.search + window.location.hash;
+        sessionStorage.setItem('km_return_url', path);
+      } catch {}
+      window.location.href = `/products/${selected.handle}`;
+    }
   };
 
   const buyuiRef = useRef(null);

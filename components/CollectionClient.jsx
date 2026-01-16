@@ -114,6 +114,12 @@ export default function CollectionClient({
               href={`/products/${p.handle}`}
               className="collection-card__overlay"
               aria-label={`${p.name}${p.available ? '' : ' (ausverkauft)'}`}
+              onClick={() => {
+                try {
+                  const path = window.location.pathname + window.location.search + window.location.hash;
+                  sessionStorage.setItem('km_return_url', path);
+                } catch {}
+              }}
             />
           </li>
         ))}

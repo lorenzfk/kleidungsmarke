@@ -4,6 +4,25 @@ import { useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 
 const SHOP_DOMAIN = process.env.NEXT_PUBLIC_SHOPIFY_DOMAIN;
+const CART_THUMB_SIZE = 512;
+
+function getThumbnailUrl(src, size = CART_THUMB_SIZE) {
+  if (!src) return null;
+  if (!/^https?:\/\//i.test(src)) return src;
+  try {
+    const url = new URL(src);
+    const host = url.hostname || '';
+    const isShopify = /(?:cdn\.shopify\.com|\.myshopify\.com)$/i.test(host) || host.includes('cdn.shopify.com');
+    if (!isShopify) return src;
+    url.searchParams.set('width', String(size));
+    url.searchParams.set('height', String(size));
+    url.searchParams.set('crop', 'center');
+    url.searchParams.set('quality', '70');
+    return url.toString();
+  } catch {
+    return src;
+  }
+}
 
 function readCart() {
   try { return JSON.parse(localStorage.getItem('km_cart') || '[]'); }
@@ -114,11 +133,12 @@ export default function CartClient() {
                 <li key={id} className="cart-item">
                   <Image
                     className="cart-img"
-                    src={v.product.image || '/placeholder.png'}
+                    src={getThumbnailUrl(v.product.image) || '/placeholder.png'}
                     alt={v.product.title}
                     width={120}
                     height={120}
-                    sizes="(max-width: 540px) 100vw, 120px"
+                    sizes="120px"
+                    quality={70}
                   />
                   <div className="cart-main">
                     <div className="cart-lineTitle">{v.product.title}</div>

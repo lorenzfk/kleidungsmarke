@@ -2,7 +2,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { playSound, toggleMute, isMuted as getMutedState, onMuteChange, configureSoundEffects } from '@/lib/sound';
 import StoreClosedOverlay from '@/components/StoreClosedOverlay';
@@ -339,12 +339,34 @@ function LockOverlay({ productTitle }) {
 export default function AppChrome({ title = 'Shop' }) {
   const pathname = usePathname();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const isCatalog = pathname === '/' || pathname === '/shop';
   const isCollection = pathname.startsWith('/collections');
   const isProduct = pathname.startsWith('/products');
 
   const isCollectionsIndex = pathname === '/collections' || pathname === '/collections/';
+
+  const prevInternalPathRef = useRef('');
+  const currentPathRef = useRef('');
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const current = window.location.pathname + window.location.search + window.location.hash;
+    try {
+      const last = sessionStorage.getItem('km_last_path') || '';
+      if (last && last !== current) prevInternalPathRef.current = last;
+      sessionStorage.setItem('km_last_path', current);
+    } catch {}
+    currentPathRef.current = current;
+  }, [pathname, searchParams]);
+
+  useEffect(() => {
+    if (!isCatalog) return;
+    try {
+      const current = window.location.pathname + window.location.search + window.location.hash;
+      sessionStorage.setItem('km_return_url', current);
+    } catch {}
+  }, [isCatalog, searchParams]);
 
   useEffect(() => {
     configureSoundEffects({
@@ -438,8 +460,22 @@ export default function AppChrome({ title = 'Shop' }) {
     } catch {}
   }, []);
 
-  const backFallbackTimer = useRef(null);
   const handleBack = useCallback(() => {
+    const prevInternal = (() => {
+      const prev = prevInternalPathRef.current;
+      if (prev && prev === currentPathRef.current) return '';
+      return prev && prev.startsWith('/') ? prev : '';
+    })();
+    const storedReturn = (() => {
+      if (!isProduct) return '';
+      try {
+        const val = sessionStorage.getItem('km_return_url') || '';
+        return val && val.startsWith('/') ? val : '';
+      } catch {
+        return '';
+      }
+    })();
+
     if (isCatalog) {
       // Home: if nothing active, re-show lockscreen; else clear selection/section
       if (!hasSelection && !section) {
@@ -453,26 +489,23 @@ export default function AppChrome({ title = 'Shop' }) {
       return;
     }
 
-    // Other pages: try history back with fallback
-    try {
-      const prevHref = window.location.href;
-      const onPopOnce = () => {
-        if (backFallbackTimer.current) { clearTimeout(backFallbackTimer.current); backFallbackTimer.current = null; }
-        window.removeEventListener('popstate', onPopOnce);
-      };
-      window.addEventListener('popstate', onPopOnce, { once: true });
-      router.back();
-
-      backFallbackTimer.current = setTimeout(() => {
-        if (window.location.href === prevHref) {
-          router.push('/');
-        }
-        backFallbackTimer.current = null;
-        window.removeEventListener('popstate', onPopOnce);
-      }, 400);
-    } catch {
-      router.push('/');
+    if (storedReturn) {
+      try { sessionStorage.removeItem('km_return_url'); } catch {}
+      router.push(storedReturn);
+      return;
     }
+
+    // Other pages: return to last known internal URL (with params), else fallback to "/"
+    try {
+      const ref = document.referrer || '';
+      const refOrigin = ref ? new URL(ref).origin : '';
+      const sameOrigin = refOrigin && refOrigin === window.location.origin;
+      if (sameOrigin && window.history.length > 1) {
+        router.back();
+        return;
+      }
+    } catch {}
+    router.push(prevInternal || '/');
   }, [isCatalog, hasSelection, section, router, clearCatalogParams]);
 
   // New rules:

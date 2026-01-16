@@ -146,6 +146,11 @@ export default function ThreeCatalog({ products }) {
   useEffect(() => {
     if (!section) return;
     setSelectedId(null);
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('sel');
+      window.history.replaceState({}, '', url);
+    } catch {}
     const msg = section === 'about'
       ? (mainpage.about || readSectionText('about'))
       : section === 'legal'
@@ -350,6 +355,10 @@ export default function ThreeCatalog({ products }) {
 
   const buyNow = () => {
     if (!selected || !selected.available) return;
+    try {
+      const path = window.location.pathname + window.location.search + window.location.hash;
+      sessionStorage.setItem('km_return_url', path);
+    } catch {}
     router.push(`/products/${selected.handle}`);
   };
   const selectPrev = () => {

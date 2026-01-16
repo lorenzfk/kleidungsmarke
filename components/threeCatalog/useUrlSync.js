@@ -24,6 +24,7 @@ export function useInitialSelection(allItems, setSelectedId) {
 export function useSelectionUrlSync(selectedId, allItems, section) {
   useEffect(() => {
     try {
+      if (!allItems || allItems.length === 0) return;
       const url = new URL(window.location.href);
       if (selectedId) {
         const item = allItems.find((i) => i.id === selectedId);
@@ -31,10 +32,12 @@ export function useSelectionUrlSync(selectedId, allItems, section) {
           url.searchParams.set('sel', item.handle);
           url.searchParams.delete('section');
         }
-      } else {
-        url.searchParams.delete('sel');
       }
       window.history.replaceState({}, '', url);
+      try {
+        const next = url.pathname + url.search + url.hash;
+        sessionStorage.setItem('km_last_path', next);
+      } catch {}
     } catch {}
   }, [selectedId, allItems, section]);
 }

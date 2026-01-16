@@ -571,25 +571,34 @@ width: 100%; display: flex; flex-direction: column; gap:12px; align-items: cente
 .option-label { color:var(--text-color); font-weight:700; margin-bottom: 6px; font-size: 1.2rem;}
 .option-values { 
   display: flex; 
-  gap: 0px;
+  flex-wrap: wrap;
+  gap: 0;
+  row-gap: 8px;
   width: 100%; 
   max-width: 400px;
-  height: 42px;
-  flex-direction: row;
+  height: auto;
   justify-content: center;
   margin-bottom: 12px;
   text-shadow: 0 -2px 1px rgba(0,0,0,.55), 0  2px 1px rgba(255,255,255,.50);
 }
-.option-value:nth-child(1){
+.option-value:nth-child(5n + 1){
   border-radius: 12px 0 0 12px;
 }
-.option-value:nth-last-child(1){
+.option-value:nth-child(5n){
   border-radius: 0 12px 12px 0;
+}
+.option-value:last-child{
+  border-radius: 0 12px 12px 0;
+}
+.option-value:nth-child(5n + 1):nth-last-child(1){
+  border-radius: 12px;
 }
 .option-value {
   width: 100%;
+  flex: 0 0 calc(100% / 5);
   border: 0;
   padding: 8px 14px;
+  min-height: 48px;
   background: linear-gradient(to bottom, rgba(255,255,255,0.1), rgba(0,0,0,.2));
   color: var(--text-color);
   font-weight: 700;
