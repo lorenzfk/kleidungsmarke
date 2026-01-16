@@ -1,4 +1,5 @@
 import './globals.css';
+import { Suspense } from 'react';
 import AppChrome from '@/components/AppChrome';
 import ViewportHeightFix from '@/components/ViewportHeightFix';
 import ZoomBlocker from '@/components/ZoomBlocker';
@@ -67,7 +68,9 @@ export default function RootLayout({ children }) {
             },
           }) }}
         />
-        <AppChrome title="Shop" />
+        <Suspense fallback={null}>
+          <AppChrome title="Shop" />
+        </Suspense>
         {children}
       </body>
     </html>
